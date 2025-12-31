@@ -5,10 +5,8 @@ import { SearchFilters } from '@/components/books/SearchFilters';
 import { mockBooks } from '@/data/mockBooks';
 import { SearchFilters as FilterType } from '@/types';
 import { BookOpen } from 'lucide-react';
-
 export default function Catalog() {
   const [filters, setFilters] = useState<FilterType>({});
-
   const filteredBooks = useMemo(() => {
     return mockBooks.filter(book => {
       // Text search
@@ -19,7 +17,6 @@ export default function Catalog() {
         const matchesSpirit = book.spiritAuthor?.toLowerCase().includes(query);
         const matchesPublisher = book.publisher.toLowerCase().includes(query);
         const matchesIsbn = book.isbn?.includes(query);
-        
         if (!matchesTitle && !matchesAuthor && !matchesSpirit && !matchesPublisher && !matchesIsbn) {
           return false;
         }
@@ -60,14 +57,11 @@ export default function Catalog() {
       if (filters.availableForSale && book.availableForSale <= 0) {
         return false;
       }
-
       return true;
     });
   }, [filters]);
-
-  return (
-    <MainLayout>
-      <div className="container py-8">
+  return <MainLayout>
+      <div className="container py-[3px]">
         <div className="space-y-6">
           {/* Header */}
           <div>
@@ -81,10 +75,7 @@ export default function Catalog() {
           </div>
 
           {/* Search and filters */}
-          <SearchFilters 
-            filters={filters} 
-            onFiltersChange={setFilters}
-          />
+          <SearchFilters filters={filters} onFiltersChange={setFilters} />
 
           {/* Results count */}
           <div className="text-sm text-muted-foreground">
@@ -92,29 +83,20 @@ export default function Catalog() {
           </div>
 
           {/* Books grid */}
-          {filteredBooks.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {filteredBooks.map((book, index) => (
-                <div 
-                  key={book.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
+          {filteredBooks.length > 0 ? <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredBooks.map((book, index) => <div key={book.id} className="animate-fade-in" style={{
+            animationDelay: `${index * 50}ms`
+          }}>
                   <BookCard book={book} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
+                </div>)}
+            </div> : <div className="text-center py-16">
               <BookOpen size={48} className="mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-semibold mb-2">Nenhum livro encontrado</h3>
               <p className="text-muted-foreground">
                 Tente ajustar os filtros de busca
               </p>
-            </div>
-          )}
+            </div>}
         </div>
       </div>
-    </MainLayout>
-  );
+    </MainLayout>;
 }
