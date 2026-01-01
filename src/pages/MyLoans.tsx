@@ -1,24 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Clock, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle, AlertCircle, RotateCcw, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 import { Loan } from '@/types';
 import { mockBooks } from '@/data/mockBooks';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { LoanReturnDialog } from '@/components/loans/LoanReturnDialog';
+import { LoanRenewalDialog } from '@/components/loans/LoanRenewalDialog';
 import { Card, CardContent } from '@/components/ui/card';
 
 // Mock loans data
@@ -30,6 +21,7 @@ const mockLoans: Loan[] = [
     status: 'active',
     borrowedAt: new Date('2024-01-01'),
     dueDate: new Date('2024-02-01'),
+    renewalCount: 0,
   },
   {
     id: '2',
@@ -38,6 +30,7 @@ const mockLoans: Loan[] = [
     status: 'pending_return',
     borrowedAt: new Date('2024-01-10'),
     dueDate: new Date('2024-02-10'),
+    returnJustification: 'Livro em bom estado',
   },
   {
     id: '3',
@@ -47,6 +40,15 @@ const mockLoans: Loan[] = [
     borrowedAt: new Date('2023-11-01'),
     dueDate: new Date('2023-12-01'),
     returnedAt: new Date('2023-11-28'),
+  },
+  {
+    id: '4',
+    bookId: '2',
+    userId: '2',
+    status: 'pending_renewal',
+    borrowedAt: new Date('2024-01-05'),
+    dueDate: new Date('2024-01-20'),
+    renewalJustification: 'Ainda não terminei de ler, preciso de mais tempo.',
   },
 ];
 
@@ -58,10 +60,16 @@ const statusConfig = {
     color: 'text-blue-500',
   },
   pending_return: {
-    label: 'Devolução Solicitada',
+    label: 'Devolução Pendente',
     icon: RotateCcw,
     variant: 'secondary' as const,
     color: 'text-yellow-500',
+  },
+  pending_renewal: {
+    label: 'Renovação Pendente',
+    icon: RefreshCw,
+    variant: 'secondary' as const,
+    color: 'text-orange-500',
   },
   returned: {
     label: 'Devolvido',
@@ -87,9 +95,9 @@ interface LoanWithBook extends Loan {
 export default function MyLoans() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const [loans, setLoans] = useState(mockLoans);
-  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<LoanWithBook | null>(null);
+  const [selectedLoanForRenewal, setSelectedLoanForRenewal] = useState<LoanWithBook | null>(null);
 
   const getBookDetails = (bookId: string) => {
     return mockBooks.find(b => b.id === bookId);
@@ -111,25 +119,24 @@ export default function MyLoans() {
     });
   }, [loans]);
 
-  const handleRequestReturn = (loan: LoanWithBook) => {
-    setSelectedLoan(loan);
-  };
-
-  const confirmReturn = () => {
-    if (!selectedLoan) return;
-    
+  const handleReturnConfirm = (loanId: string, justification?: string) => {
     setLoans(prev =>
       prev.map(l =>
-        l.id === selectedLoan.id ? { ...l, status: 'pending_return' as const } : l
+        l.id === loanId 
+          ? { ...l, status: 'pending_return' as const, returnJustification: justification } 
+          : l
       )
     );
-    
-    toast({
-      title: 'Devolução solicitada!',
-      description: 'O administrador será notificado. Leve o livro à biblioteca.',
-    });
-    
-    setSelectedLoan(null);
+  };
+
+  const handleRenewalConfirm = (loanId: string, justification: string) => {
+    setLoans(prev =>
+      prev.map(l =>
+        l.id === loanId 
+          ? { ...l, status: 'pending_renewal' as const, renewalJustification: justification } 
+          : l
+      )
+    );
   };
 
   const columns: ColumnDef<LoanWithBook>[] = useMemo(() => [
@@ -171,7 +178,8 @@ export default function MyLoans() {
       filterType: 'select',
       filterOptions: [
         { label: 'Ativo', value: 'active' },
-        { label: 'Devolução Solicitada', value: 'pending_return' },
+        { label: 'Devolução Pendente', value: 'pending_return' },
+        { label: 'Renovação Pendente', value: 'pending_renewal' },
         { label: 'Devolvido', value: 'returned' },
         { label: 'Atrasado', value: 'overdue' },
       ],
@@ -221,19 +229,37 @@ export default function MyLoans() {
     {
       id: 'actions',
       header: '',
-      cell: (loan) => loan.status === 'active' ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleRequestReturn(loan);
-          }}
-        >
-          <RotateCcw size={14} className="mr-1" />
-          Devolver
-        </Button>
-      ) : null,
+      cell: (loan) => {
+        if (loan.status === 'active') {
+          return (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedLoanForReturn(loan);
+                }}
+              >
+                <RotateCcw size={14} className="mr-1" />
+                Devolver
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedLoanForRenewal(loan);
+                }}
+              >
+                <RefreshCw size={14} className="mr-1" />
+                Renovar
+              </Button>
+            </div>
+          );
+        }
+        return null;
+      },
     },
   ], [navigate]);
 
@@ -271,18 +297,30 @@ export default function MyLoans() {
               </p>
 
               {loan.status === 'active' && (
-                <div className="mt-3">
+                <div className="mt-3 flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="flex-1"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleRequestReturn(loan);
+                      setSelectedLoanForReturn(loan);
                     }}
                   >
                     <RotateCcw size={14} className="mr-1" />
-                    Solicitar Devolução
+                    Devolver
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedLoanForRenewal(loan);
+                    }}
+                  >
+                    <RefreshCw size={14} className="mr-1" />
+                    Renovar
                   </Button>
                 </div>
               )}
@@ -325,17 +363,30 @@ export default function MyLoans() {
             </Badge>
 
             {loan.status === 'active' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRequestReturn(loan);
-                }}
-              >
-                <RotateCcw size={14} className="mr-1" />
-                Devolver
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedLoanForReturn(loan);
+                  }}
+                >
+                  <RotateCcw size={14} className="mr-1" />
+                  Devolver
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedLoanForRenewal(loan);
+                  }}
+                >
+                  <RefreshCw size={14} className="mr-1" />
+                  Renovar
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -353,7 +404,7 @@ export default function MyLoans() {
               Meus Empréstimos
             </h1>
             <p className="text-muted-foreground mt-1">
-              Acompanhe seus empréstimos e devoluções
+              Acompanhe seus empréstimos, devoluções e renovações
             </p>
           </div>
 
@@ -372,27 +423,21 @@ export default function MyLoans() {
         </div>
       </div>
 
-      {/* Return confirmation dialog */}
-      <AlertDialog open={!!selectedLoan} onOpenChange={() => setSelectedLoan(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Devolução</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você está solicitando a devolução do livro{' '}
-              <strong>{(selectedLoan as LoanWithBook)?.bookTitle}</strong>.
-              <br /><br />
-              Por favor, leve o livro à biblioteca para finalizar a devolução.
-              O administrador irá confirmar o recebimento.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmReturn}>
-              Confirmar Devolução
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Return dialog */}
+      <LoanReturnDialog
+        loan={selectedLoanForReturn}
+        open={!!selectedLoanForReturn}
+        onOpenChange={(open) => !open && setSelectedLoanForReturn(null)}
+        onConfirm={handleReturnConfirm}
+      />
+
+      {/* Renewal dialog */}
+      <LoanRenewalDialog
+        loan={selectedLoanForRenewal}
+        open={!!selectedLoanForRenewal}
+        onOpenChange={(open) => !open && setSelectedLoanForRenewal(null)}
+        onConfirm={handleRenewalConfirm}
+      />
     </MainLayout>
   );
 }
