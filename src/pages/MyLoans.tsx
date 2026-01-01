@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BookOpen, Clock, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loan } from '@/types';
@@ -18,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 
 // Mock loans data
 const mockLoans: Loan[] = [
@@ -75,7 +77,15 @@ const statusConfig = {
   },
 };
 
+interface LoanWithBook extends Loan {
+  bookTitle: string;
+  bookAuthor: string;
+  bookCover: string;
+  daysLeft: number;
+}
+
 export default function MyLoans() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [loans, setLoans] = useState(mockLoans);
@@ -85,7 +95,23 @@ export default function MyLoans() {
     return mockBooks.find(b => b.id === bookId);
   };
 
-  const handleRequestReturn = (loan: Loan) => {
+  const loansWithBooks: LoanWithBook[] = useMemo(() => {
+    return loans.map(loan => {
+      const book = getBookDetails(loan.bookId);
+      const daysLeft = Math.ceil(
+        (loan.dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      );
+      return {
+        ...loan,
+        bookTitle: book?.title || 'Livro não encontrado',
+        bookAuthor: book?.author || '',
+        bookCover: book?.coverUrl || '/placeholder.svg',
+        daysLeft,
+      };
+    });
+  }, [loans]);
+
+  const handleRequestReturn = (loan: LoanWithBook) => {
     setSelectedLoan(loan);
   };
 
@@ -106,127 +132,244 @@ export default function MyLoans() {
     setSelectedLoan(null);
   };
 
-  const activeLoans = loans.filter(l => l.status === 'active' || l.status === 'pending_return');
-  const historyLoans = loans.filter(l => l.status === 'returned');
+  const columns: ColumnDef<LoanWithBook>[] = useMemo(() => [
+    {
+      id: 'bookTitle',
+      header: 'Livro',
+      accessorKey: 'bookTitle',
+      sortable: true,
+      filterable: true,
+      filterType: 'text',
+      cell: (loan) => (
+        <div className="flex items-center gap-3">
+          <img
+            src={loan.bookCover}
+            alt={loan.bookTitle}
+            className="w-10 h-14 object-cover rounded"
+          />
+          <div>
+            <span 
+              className="font-medium hover:text-primary cursor-pointer transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/livro/${loan.bookId}`);
+              }}
+            >
+              {loan.bookTitle}
+            </span>
+            <p className="text-sm text-muted-foreground">{loan.bookAuthor}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      accessorKey: 'status',
+      sortable: true,
+      filterable: true,
+      filterType: 'select',
+      filterOptions: [
+        { label: 'Ativo', value: 'active' },
+        { label: 'Devolução Solicitada', value: 'pending_return' },
+        { label: 'Devolvido', value: 'returned' },
+        { label: 'Atrasado', value: 'overdue' },
+      ],
+      cell: (loan) => {
+        const config = statusConfig[loan.status];
+        const StatusIcon = config.icon;
+        return (
+          <Badge variant={config.variant}>
+            <StatusIcon size={14} className="mr-1" />
+            {config.label}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: 'borrowedAt',
+      header: 'Data Empréstimo',
+      accessorFn: (loan) => loan.borrowedAt.toISOString(),
+      sortable: true,
+      cell: (loan) => loan.borrowedAt.toLocaleDateString('pt-BR'),
+    },
+    {
+      id: 'dueDate',
+      header: 'Vencimento',
+      accessorFn: (loan) => loan.dueDate.toISOString(),
+      sortable: true,
+      cell: (loan) => (
+        <div>
+          <span>{loan.dueDate.toLocaleDateString('pt-BR')}</span>
+          {loan.status === 'active' && (
+            <p className={`text-xs ${loan.daysLeft <= 5 ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {loan.daysLeft > 0 ? `${loan.daysLeft} dias restantes` : 'Vence hoje'}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'returnedAt',
+      header: 'Devolvido em',
+      accessorFn: (loan) => loan.returnedAt?.toISOString() || '',
+      sortable: true,
+      cell: (loan) => loan.returnedAt 
+        ? loan.returnedAt.toLocaleDateString('pt-BR') 
+        : '-',
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: (loan) => loan.status === 'active' ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRequestReturn(loan);
+          }}
+        >
+          <RotateCcw size={14} className="mr-1" />
+          Devolver
+        </Button>
+      ) : null,
+    },
+  ], [navigate]);
+
+  const renderCard = (loan: LoanWithBook) => {
+    const config = statusConfig[loan.status];
+    const StatusIcon = config.icon;
+
+    return (
+      <Card className="hover:shadow-md transition-shadow">
+        <CardContent className="p-4">
+          <div className="flex gap-4">
+            <img
+              src={loan.bookCover}
+              alt={loan.bookTitle}
+              className="w-16 h-24 object-cover rounded"
+            />
+            <div className="flex-1 min-w-0">
+              <h3 
+                className="font-semibold line-clamp-2 hover:text-primary cursor-pointer transition-colors"
+                onClick={() => navigate(`/livro/${loan.bookId}`)}
+              >
+                {loan.bookTitle}
+              </h3>
+              <p className="text-sm text-muted-foreground">{loan.bookAuthor}</p>
+              
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant={config.variant}>
+                  <StatusIcon size={14} className="mr-1" />
+                  {config.label}
+                </Badge>
+              </div>
+
+              <p className="text-xs text-muted-foreground mt-2">
+                Emprestado: {loan.borrowedAt.toLocaleDateString('pt-BR')}
+              </p>
+
+              {loan.status === 'active' && (
+                <div className="mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRequestReturn(loan);
+                    }}
+                  >
+                    <RotateCcw size={14} className="mr-1" />
+                    Solicitar Devolução
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderListItem = (loan: LoanWithBook) => {
+    const config = statusConfig[loan.status];
+    const StatusIcon = config.icon;
+
+    return (
+      <div className="flex gap-4 p-4 bg-card border rounded-lg hover:shadow-md transition-shadow">
+        <img
+          src={loan.bookCover}
+          alt={loan.bookTitle}
+          className="w-12 h-18 object-cover rounded"
+        />
+        <div className="flex-1 flex items-center justify-between gap-4">
+          <div>
+            <h3 
+              className="font-medium hover:text-primary cursor-pointer transition-colors"
+              onClick={() => navigate(`/livro/${loan.bookId}`)}
+            >
+              {loan.bookTitle}
+            </h3>
+            <p className="text-sm text-muted-foreground">{loan.bookAuthor}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {loan.borrowedAt.toLocaleDateString('pt-BR')} - {loan.returnedAt?.toLocaleDateString('pt-BR') || loan.dueDate.toLocaleDateString('pt-BR')}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Badge variant={config.variant}>
+              <StatusIcon size={14} className="mr-1" />
+              {config.label}
+            </Badge>
+
+            {loan.status === 'active' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRequestReturn(loan);
+                }}
+              >
+                <RotateCcw size={14} className="mr-1" />
+                Devolver
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <MainLayout>
-      <div className="container py-8 max-w-4xl">
-        <h1 className="text-3xl font-serif font-bold mb-8 flex items-center gap-3">
-          <BookOpen className="text-primary" />
-          Meus Empréstimos
-        </h1>
+      <div className="container py-8 max-w-6xl">
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-serif font-bold flex items-center gap-3">
+              <BookOpen className="text-primary" />
+              Meus Empréstimos
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Acompanhe seus empréstimos e devoluções
+            </p>
+          </div>
 
-        {/* Active loans */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Empréstimos Ativos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activeLoans.length > 0 ? (
-              <div className="space-y-4">
-                {activeLoans.map(loan => {
-                  const book = getBookDetails(loan.bookId);
-                  const status = statusConfig[loan.status];
-                  const StatusIcon = status.icon;
-                  const daysLeft = Math.ceil(
-                    (loan.dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-                  );
-
-                  if (!book) return null;
-
-                  return (
-                    <div key={loan.id} className="flex gap-4 p-4 bg-muted/30 rounded-lg">
-                      <img
-                        src={book.coverUrl || '/placeholder.svg'}
-                        alt={book.title}
-                        className="w-16 h-24 object-cover rounded"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{book.title}</h3>
-                        <p className="text-sm text-muted-foreground">{book.author}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant={status.variant}>
-                            <StatusIcon size={14} className="mr-1" />
-                            {status.label}
-                          </Badge>
-                          {loan.status === 'active' && (
-                            <span className={`text-sm ${daysLeft <= 5 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                              {daysLeft > 0 ? `${daysLeft} dias restantes` : 'Vence hoje'}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Emprestado em: {loan.borrowedAt.toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
-                      {loan.status === 'active' && (
-                        <Button
-                          variant="outline"
-                          onClick={() => handleRequestReturn(loan)}
-                        >
-                          <RotateCcw size={16} className="mr-2" />
-                          Solicitar Devolução
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">
-                Você não possui empréstimos ativos no momento.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* History */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Histórico</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {historyLoans.length > 0 ? (
-              <div className="space-y-4">
-                {historyLoans.map(loan => {
-                  const book = getBookDetails(loan.bookId);
-                  const status = statusConfig[loan.status];
-                  const StatusIcon = status.icon;
-
-                  if (!book) return null;
-
-                  return (
-                    <div key={loan.id} className="flex gap-4 p-4 bg-muted/30 rounded-lg opacity-75">
-                      <img
-                        src={book.coverUrl || '/placeholder.svg'}
-                        alt={book.title}
-                        className="w-12 h-18 object-cover rounded"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-medium">{book.title}</h3>
-                        <p className="text-sm text-muted-foreground">{book.author}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant={status.variant}>
-                            <StatusIcon size={14} className="mr-1" />
-                            {status.label}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {loan.borrowedAt.toLocaleDateString('pt-BR')} - {loan.returnedAt?.toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">
-                Nenhum histórico de empréstimos.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+          <DataTable
+            data={loansWithBooks}
+            columns={columns}
+            searchPlaceholder="Buscar por título do livro..."
+            searchableFields={['bookTitle', 'bookAuthor']}
+            onRowClick={(loan) => navigate(`/livro/${loan.bookId}`)}
+            renderCard={renderCard}
+            renderListItem={renderListItem}
+            emptyMessage="Você não possui empréstimos"
+            emptyIcon={<BookOpen size={48} className="text-muted-foreground/50" />}
+            defaultView="list"
+          />
+        </div>
       </div>
 
       {/* Return confirmation dialog */}
@@ -235,8 +378,11 @@ export default function MyLoans() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Devolução</AlertDialogTitle>
             <AlertDialogDescription>
-              Você está solicitando a devolução do livro. 
+              Você está solicitando a devolução do livro{' '}
+              <strong>{(selectedLoan as LoanWithBook)?.bookTitle}</strong>.
+              <br /><br />
               Por favor, leve o livro à biblioteca para finalizar a devolução.
+              O administrador irá confirmar o recebimento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
