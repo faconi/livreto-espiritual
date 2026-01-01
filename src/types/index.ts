@@ -52,11 +52,14 @@ export interface Loan {
   userId: string;
   book?: Book;
   user?: User;
-  status: 'active' | 'pending_return' | 'returned' | 'overdue';
+  status: 'active' | 'pending_return' | 'pending_renewal' | 'returned' | 'overdue';
   borrowedAt: Date;
   dueDate: Date;
   returnedAt?: Date;
-  notes?: string;
+  renewalCount?: number;
+  returnJustification?: string;
+  renewalJustification?: string;
+  adminNotes?: string;
 }
 
 export interface Sale {
