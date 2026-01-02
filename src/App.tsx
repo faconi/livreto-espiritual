@@ -16,6 +16,10 @@ import Cart from "./pages/Cart";
 import Profile from "./pages/Profile";
 import MyLoans from "./pages/MyLoans";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminBooks from "./pages/admin/AdminBooks";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminLoans from "./pages/admin/AdminLoans";
+import AdminSales from "./pages/admin/AdminSales";
 import BookForm from "./pages/admin/BookForm";
 import NotFound from "./pages/NotFound";
 
@@ -92,8 +96,23 @@ function AppRoutes() {
       <Route path="/admin" element={
         <AdminRoute><AdminDashboard /></AdminRoute>
       } />
+      <Route path="/admin/livros" element={
+        <AdminRoute><AdminBooks /></AdminRoute>
+      } />
       <Route path="/admin/livros/novo" element={
         <AdminRoute><BookForm /></AdminRoute>
+      } />
+      <Route path="/admin/livros/:id/editar" element={
+        <AdminRoute><BookForm /></AdminRoute>
+      } />
+      <Route path="/admin/usuarios" element={
+        <AdminRoute><AdminUsers /></AdminRoute>
+      } />
+      <Route path="/admin/emprestimos" element={
+        <AdminRoute><AdminLoans /></AdminRoute>
+      } />
+      <Route path="/admin/vendas" element={
+        <AdminRoute><AdminSales /></AdminRoute>
       } />
       
       {/* Catch-all */}
