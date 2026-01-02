@@ -6,36 +6,29 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { BookCard } from '@/components/books/BookCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { mockBooks } from '@/data/mockBooks';
-
-const features = [
-  {
-    icon: BookOpen,
-    title: 'Biblioteca Espírita',
-    description: 'Amplo acervo de obras espíritas para empréstimo gratuito',
-  },
-  {
-    icon: ShoppingBag,
-    title: 'Livraria',
-    description: 'Adquira livros espíritas com preços acessíveis',
-  },
-  {
-    icon: Users,
-    title: 'Comunidade',
-    description: 'Faça parte da nossa família espírita há 45 anos',
-  },
-  {
-    icon: Heart,
-    title: 'Caridade',
-    description: 'Parte da renda é revertida para ações sociais',
-  },
-];
-
+const features = [{
+  icon: BookOpen,
+  title: 'Biblioteca Espírita',
+  description: 'Amplo acervo de obras espíritas para empréstimo gratuito'
+}, {
+  icon: ShoppingBag,
+  title: 'Livraria',
+  description: 'Adquira livros espíritas com preços acessíveis'
+}, {
+  icon: Users,
+  title: 'Comunidade',
+  description: 'Faça parte da nossa família espírita há 45 anos'
+}, {
+  icon: Heart,
+  title: 'Caridade',
+  description: 'Parte da renda é revertida para ações sociais'
+}];
 export default function Index() {
-  const { user } = useAuth();
+  const {
+    user
+  } = useAuth();
   const featuredBooks = mockBooks.slice(0, 4);
-
-  return (
-    <MainLayout>
+  return <MainLayout>
       {/* Hero Section */}
       <section className="relative overflow-hidden gradient-hero">
         <div className="absolute inset-0 opacity-5">
@@ -52,7 +45,7 @@ export default function Index() {
             
             <h1 className="text-4xl md:text-6xl font-serif font-bold tracking-tight">
               Biblioteca e Livraria
-              <span className="text-gradient block mt-2">Evangelho de Cristo</span>
+              <span className="text-gradient block mt-2 text-primary-foreground">Evangelho de Cristo</span>
             </h1>
             
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -77,10 +70,7 @@ export default function Index() {
         {/* Wave divider */}
         <div className="absolute bottom-0 left-0 right-0">
           <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path 
-              d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z" 
-              fill="hsl(var(--background))"
-            />
+            <path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z" fill="hsl(var(--background))" />
           </svg>
         </div>
       </section>
@@ -89,12 +79,9 @@ export default function Index() {
       <section className="py-16 md:py-24">
         <div className="container">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => (
-              <Card 
-                key={feature.title}
-                className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-none bg-gradient-to-br from-card to-muted/30"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
+            {features.map((feature, index) => <Card key={feature.title} className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-none bg-gradient-to-br from-card to-muted/30" style={{
+            animationDelay: `${index * 100}ms`
+          }}>
                 <CardContent className="p-6 space-y-3">
                   <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                     <feature.icon className="text-primary-foreground" size={24} />
@@ -102,8 +89,7 @@ export default function Index() {
                   <h3 className="font-serif font-semibold text-lg">{feature.title}</h3>
                   <p className="text-sm text-muted-foreground">{feature.description}</p>
                 </CardContent>
-              </Card>
-            ))}
+              </Card>)}
           </div>
         </div>
       </section>
@@ -127,9 +113,7 @@ export default function Index() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredBooks.map((book) => (
-              <BookCard key={book.id} book={book} />
-            ))}
+            {featuredBooks.map(book => <BookCard key={book.id} book={book} />)}
           </div>
         </div>
       </section>
@@ -148,20 +132,16 @@ export default function Index() {
                   e receber novidades sobre nosso acervo.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  {!user ? (
-                    <>
+                  {!user ? <>
                       <Button size="lg" asChild>
                         <Link to="/cadastro">Criar Conta Grátis</Link>
                       </Button>
                       <Button size="lg" variant="outline" asChild>
                         <Link to="/login">Já tenho conta</Link>
                       </Button>
-                    </>
-                  ) : (
-                    <Button size="lg" asChild>
+                    </> : <Button size="lg" asChild>
                       <Link to="/catalogo">Explorar Catálogo</Link>
-                    </Button>
-                  )}
+                    </Button>}
                 </div>
               </div>
               <div className="hidden md:block relative bg-gradient-to-br from-primary/20 to-accent/20">
@@ -176,6 +156,5 @@ export default function Index() {
           </Card>
         </div>
       </section>
-    </MainLayout>
-  );
+    </MainLayout>;
 }
