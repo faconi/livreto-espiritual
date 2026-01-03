@@ -44,8 +44,16 @@ export default function AdminBooks() {
       accessorKey: 'title',
       sortable: true,
       filterable: true,
+      filterType: 'text',
       cell: (row) => (
-        <div className="flex items-center gap-3">
+        <div 
+          className="flex items-center gap-3 cursor-pointer hover:text-primary transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedBook(row);
+            setDetailsOpen(true);
+          }}
+        >
           {row.coverUrl && (
             <img 
               src={row.coverUrl} 
@@ -66,6 +74,7 @@ export default function AdminBooks() {
       accessorKey: 'spiritAuthor',
       sortable: true,
       filterable: true,
+      filterType: 'text',
     },
     {
       id: 'publisher',
@@ -113,35 +122,6 @@ export default function AdminBooks() {
       accessorKey: 'salePrice',
       sortable: true,
       cell: (row) => row.salePrice ? `R$ ${row.salePrice.toFixed(2)}` : '-',
-    },
-    {
-      id: 'actions',
-      header: 'Ações',
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedBook(row);
-              setDetailsOpen(true);
-            }}
-          >
-            <Eye size={16} />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/admin/livros/${row.id}/editar`);
-            }}
-          >
-            <Edit size={16} />
-          </Button>
-        </div>
-      ),
     },
   ];
 

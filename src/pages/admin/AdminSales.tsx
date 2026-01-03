@@ -99,6 +99,7 @@ const paymentMethodLabels: Record<Sale['paymentMethod'], string> = {
 const paymentStatusConfig: Record<Sale['paymentStatus'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pendente', variant: 'secondary' },
   completed: { label: 'Confirmado', variant: 'default' },
+  failed: { label: 'Falhou', variant: 'destructive' },
 };
 
 export default function AdminSales() {

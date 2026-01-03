@@ -8,7 +8,9 @@ import {
   LogOut, 
   Settings,
   BookOpen,
-  LayoutDashboard
+  LayoutDashboard,
+  Activity,
+  ClipboardList
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/ui/Logo';
@@ -112,9 +114,15 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/meus-emprestimos" className="cursor-pointer">
+                    <Link to="/meus-livros" className="cursor-pointer">
                       <BookOpen className="mr-2 h-4 w-4" />
-                      Meus Empréstimos
+                      Meus Livros
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/minhas-atividades" className="cursor-pointer">
+                      <Activity className="mr-2 h-4 w-4" />
+                      Minhas Atividades
                     </Link>
                   </DropdownMenuItem>
                   {isAdmin && (
@@ -124,6 +132,12 @@ export function Header() {
                         <Link to="/admin" className="cursor-pointer">
                           <LayoutDashboard className="mr-2 h-4 w-4" />
                           Painel Admin
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/pendencias" className="cursor-pointer">
+                          <ClipboardList className="mr-2 h-4 w-4" />
+                          Pendências
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>

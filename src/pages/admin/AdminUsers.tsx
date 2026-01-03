@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Eye, Edit, BookMarked, ShoppingBag, StickyNote, Save } from 'lucide-react';
+import { Users, BookMarked, ShoppingBag, StickyNote, Save } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -102,8 +102,17 @@ export default function AdminUsers() {
       accessorKey: 'fullName',
       sortable: true,
       filterable: true,
+      filterType: 'text',
       cell: (row) => (
-        <div className="flex items-center gap-3">
+        <div 
+          className="flex items-center gap-3 cursor-pointer hover:text-primary transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedUser(row);
+            setAdminNotes(row.notes || '');
+            setDetailsOpen(true);
+          }}
+        >
           <Avatar className="h-8 w-8">
             <AvatarImage src={row.avatarUrl} />
             <AvatarFallback>{row.fullName.charAt(0)}</AvatarFallback>
@@ -123,12 +132,15 @@ export default function AdminUsers() {
       accessorKey: 'email',
       sortable: true,
       filterable: true,
+      filterType: 'text',
     },
     {
       id: 'phone',
       header: 'Telefone',
       accessorKey: 'phone',
       sortable: true,
+      filterable: true,
+      filterType: 'text',
     },
     {
       id: 'role',
@@ -161,26 +173,6 @@ export default function AdminUsers() {
       cell: (row) => row.notes ? (
         <StickyNote size={16} className="text-yellow-600" />
       ) : null,
-    },
-    {
-      id: 'actions',
-      header: 'Ações',
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedUser(row);
-              setAdminNotes(row.notes || '');
-              setDetailsOpen(true);
-            }}
-          >
-            <Eye size={16} />
-          </Button>
-        </div>
-      ),
     },
   ];
 

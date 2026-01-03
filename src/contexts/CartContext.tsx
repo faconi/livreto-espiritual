@@ -31,7 +31,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       
       toast({
-        title: type === 'loan' ? 'Empréstimo adicionado' : 'Livro adicionado',
+        title: 'Livro adicionado',
         description: `"${book.title}" foi adicionado ao carrinho.`,
       });
       
@@ -50,9 +50,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
     
     setItems(prev =>
-      prev.map(item =>
-        item.book.id === bookId ? { ...item, quantity } : item
-      )
+      prev.map(item => {
+        if (item.book.id === bookId) {
+          // Limit quantity to available stock
+          const maxQuantity = item.book.availableForSale;
+          const newQuantity = Math.min(quantity, maxQuantity);
+          
+          if (quantity > maxQuantity) {
+            toast({
+              title: 'Quantidade limitada',
+              description: `Apenas ${maxQuantity} unidades disponíveis em estoque.`,
+              variant: 'destructive',
+            });
+          }
+          
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      })
     );
   };
 
