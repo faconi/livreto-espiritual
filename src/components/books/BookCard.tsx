@@ -3,21 +3,26 @@ import { Book } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, BookMarked, Eye } from 'lucide-react';
+import { ShoppingCart, BookMarked, Eye, Heart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { LoanRequestDialog } from '@/components/loans/LoanRequestDialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface BookCardProps {
   book: Book;
   className?: string;
+  onWishlistToggle?: (bookId: string) => void;
+  isInWishlist?: boolean;
 }
 
-export function BookCard({ book, className }: BookCardProps) {
+export function BookCard({ book, className, onWishlistToggle, isInWishlist }: BookCardProps) {
   const { addToCart } = useCart();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
 
   const hasDiscount = book.discount && book.discount > 0;
@@ -25,9 +30,28 @@ export function BookCard({ book, className }: BookCardProps) {
     ? book.salePrice * (1 - (book.discount || 0) / 100) 
     : 0;
 
+  // Check loan availability (max 3 active loans per user, 1 per book)
+  const canLoan = book.availableForLoan > 0;
+  const canBuy = book.availableForSale > 0 && book.salePrice;
+
   const handleLoanConfirm = (confirmedBook: Book) => {
-    // In real app, this would create a loan record in the database
+    // In real app, this would create a loan record and redirect to My Books
     console.log('Loan confirmed for book:', confirmedBook.id);
+    navigate('/meus-livros');
+  };
+
+  const handleWishlistToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onWishlistToggle) {
+      onWishlistToggle(book.id);
+    } else {
+      toast({
+        title: isInWishlist ? 'Removido da lista de desejos' : 'Adicionado à lista de desejos',
+        description: isInWishlist 
+          ? `"${book.title}" foi removido da sua lista.`
+          : `"${book.title}" foi adicionado à sua lista.`,
+      });
+    }
   };
 
   return (
@@ -56,6 +80,21 @@ export function BookCard({ book, className }: BookCardProps) {
               </Badge>
             )}
           </div>
+
+          {/* Wishlist button */}
+          {user && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute top-2 right-2 h-8 w-8 bg-background/80 hover:bg-background"
+              onClick={handleWishlistToggle}
+            >
+              <Heart 
+                size={16} 
+                className={isInWishlist ? 'fill-red-500 text-red-500' : ''} 
+              />
+            </Button>
+          )}
 
           {/* Quick actions overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -126,7 +165,7 @@ export function BookCard({ book, className }: BookCardProps) {
           {/* Actions */}
           {user && (
             <div className="flex gap-2 pt-2">
-              {book.availableForLoan > 0 && (
+              {canLoan && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -137,7 +176,7 @@ export function BookCard({ book, className }: BookCardProps) {
                   Emprestar
                 </Button>
               )}
-              {book.availableForSale > 0 && book.salePrice && (
+              {canBuy && (
                 <Button
                   size="sm"
                   className="flex-1"
@@ -146,6 +185,11 @@ export function BookCard({ book, className }: BookCardProps) {
                   <ShoppingCart size={14} className="mr-1" />
                   Comprar
                 </Button>
+              )}
+              {!canLoan && !canBuy && (
+                <Badge variant="secondary" className="w-full justify-center py-1">
+                  Indisponível
+                </Badge>
               )}
             </div>
           )}

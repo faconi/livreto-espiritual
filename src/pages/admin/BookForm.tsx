@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
-import { categories, publishers } from '@/data/mockBooks';
+import { categories, publishers, mockBooks } from '@/data/mockBooks';
 import { Link } from 'react-router-dom';
 
 const bookSchema = z.object({
@@ -52,9 +52,12 @@ type BookFormData = z.infer<typeof bookSchema>;
 
 export default function BookForm() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+
+  const isEditing = !!id;
 
   const form = useForm<BookFormData>({
     resolver: zodResolver(bookSchema),
@@ -80,6 +83,38 @@ export default function BookForm() {
       acquisitionDate: '',
     },
   });
+
+  // Load book data when editing
+  useEffect(() => {
+    if (isEditing && id) {
+      const book = mockBooks.find(b => b.id === id);
+      if (book) {
+        form.reset({
+          isbn: book.isbn || '',
+          title: book.title,
+          author: book.author,
+          spiritAuthor: book.spiritAuthor || '',
+          publisher: book.publisher,
+          category: book.category || '',
+          year: book.year?.toString() || '',
+          pages: book.pages?.toString() || '',
+          description: book.description || '',
+          coverUrl: book.coverUrl || '',
+          quantityForLoan: book.quantityForLoan.toString(),
+          quantityForSale: book.quantityForSale.toString(),
+          acquisitionPrice: book.acquisitionPrice?.toString() || '',
+          salePrice: book.salePrice?.toString() || '',
+          suggestedMargin: book.suggestedMargin?.toString() || '80',
+          discount: book.discount?.toString() || '0',
+          isDonation: book.isDonation || false,
+          invoiceNumber: book.invoiceNumber || '',
+          acquisitionDate: book.acquisitionDate 
+            ? new Date(book.acquisitionDate).toISOString().split('T')[0] 
+            : '',
+        });
+      }
+    }
+  }, [id, isEditing, form]);
 
   const acquisitionPrice = parseFloat(form.watch('acquisitionPrice') || '0');
   const suggestedMargin = parseFloat(form.watch('suggestedMargin') || '80');
@@ -132,8 +167,8 @@ export default function BookForm() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     toast({
-      title: 'Livro cadastrado!',
-      description: `"${data.title}" foi adicionado ao acervo.`,
+      title: isEditing ? 'Livro atualizado!' : 'Livro cadastrado!',
+      description: `"${data.title}" foi ${isEditing ? 'atualizado' : 'adicionado ao acervo'}.`,
     });
     
     navigate('/admin/livros');
@@ -144,13 +179,15 @@ export default function BookForm() {
     <MainLayout showFooter={false}>
       <div className="container py-8 max-w-4xl">
         <Button variant="ghost" asChild className="mb-6">
-          <Link to="/admin">
+          <Link to="/admin/livros">
             <ArrowLeft size={18} className="mr-2" />
-            Voltar ao painel
+            Voltar
           </Link>
         </Button>
 
-        <h1 className="text-3xl font-serif font-bold mb-8">Cadastrar Novo Livro</h1>
+        <h1 className="text-3xl font-serif font-bold mb-8">
+          {isEditing ? 'Editar Livro' : 'Cadastrar Novo Livro'}
+        </h1>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -481,7 +518,7 @@ export default function BookForm() {
                       <div>
                         <FormLabel>Marcar como Doação</FormLabel>
                         <FormDescription>
-                          Livros doados aparecem destacados no catálogo
+                          Livros de doação são destacados no catálogo
                         </FormDescription>
                       </div>
                       <FormControl>
@@ -496,10 +533,10 @@ export default function BookForm() {
               </CardContent>
             </Card>
 
-            {/* Admin info */}
+            {/* Acquisition info */}
             <Card>
               <CardHeader>
-                <CardTitle>Informações Administrativas</CardTitle>
+                <CardTitle>Informações de Aquisição</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -534,21 +571,16 @@ export default function BookForm() {
 
             {/* Submit */}
             <div className="flex gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+              <Button type="button" variant="outline" onClick={() => navigate('/admin/livros')}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading} className="flex-1">
                 {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Cadastrar Livro
-                  </>
+                  <Save className="mr-2 h-4 w-4" />
                 )}
+                {isEditing ? 'Salvar Alterações' : 'Cadastrar Livro'}
               </Button>
             </div>
           </form>

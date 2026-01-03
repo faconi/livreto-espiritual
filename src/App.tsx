@@ -14,12 +14,14 @@ import Catalog from "./pages/Catalog";
 import BookDetail from "./pages/BookDetail";
 import Cart from "./pages/Cart";
 import Profile from "./pages/Profile";
-import MyLoans from "./pages/MyLoans";
+import MyBooks from "./pages/MyBooks";
+import MyActivities from "./pages/MyActivities";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminBooks from "./pages/admin/AdminBooks";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminLoans from "./pages/admin/AdminLoans";
 import AdminSales from "./pages/admin/AdminSales";
+import AdminPendingConfirmations from "./pages/admin/AdminPendingConfirmations";
 import BookForm from "./pages/admin/BookForm";
 import NotFound from "./pages/NotFound";
 
@@ -76,44 +78,23 @@ function AppRoutes() {
       <Route path="/cadastro" element={<Register />} />
       
       {/* Protected routes */}
-      <Route path="/catalogo" element={
-        <ProtectedRoute><Catalog /></ProtectedRoute>
-      } />
-      <Route path="/livro/:id" element={
-        <ProtectedRoute><BookDetail /></ProtectedRoute>
-      } />
-      <Route path="/carrinho" element={
-        <ProtectedRoute><Cart /></ProtectedRoute>
-      } />
-      <Route path="/perfil" element={
-        <ProtectedRoute><Profile /></ProtectedRoute>
-      } />
-      <Route path="/meus-emprestimos" element={
-        <ProtectedRoute><MyLoans /></ProtectedRoute>
-      } />
+      <Route path="/catalogo" element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
+      <Route path="/livro/:id" element={<ProtectedRoute><BookDetail /></ProtectedRoute>} />
+      <Route path="/carrinho" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+      <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/meus-livros" element={<ProtectedRoute><MyBooks /></ProtectedRoute>} />
+      <Route path="/meus-emprestimos" element={<Navigate to="/meus-livros" replace />} />
+      <Route path="/minhas-atividades" element={<ProtectedRoute><MyActivities /></ProtectedRoute>} />
       
       {/* Admin routes */}
-      <Route path="/admin" element={
-        <AdminRoute><AdminDashboard /></AdminRoute>
-      } />
-      <Route path="/admin/livros" element={
-        <AdminRoute><AdminBooks /></AdminRoute>
-      } />
-      <Route path="/admin/livros/novo" element={
-        <AdminRoute><BookForm /></AdminRoute>
-      } />
-      <Route path="/admin/livros/:id/editar" element={
-        <AdminRoute><BookForm /></AdminRoute>
-      } />
-      <Route path="/admin/usuarios" element={
-        <AdminRoute><AdminUsers /></AdminRoute>
-      } />
-      <Route path="/admin/emprestimos" element={
-        <AdminRoute><AdminLoans /></AdminRoute>
-      } />
-      <Route path="/admin/vendas" element={
-        <AdminRoute><AdminSales /></AdminRoute>
-      } />
+      <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+      <Route path="/admin/livros" element={<AdminRoute><AdminBooks /></AdminRoute>} />
+      <Route path="/admin/livros/novo" element={<AdminRoute><BookForm /></AdminRoute>} />
+      <Route path="/admin/livros/:id/editar" element={<AdminRoute><BookForm /></AdminRoute>} />
+      <Route path="/admin/usuarios" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+      <Route path="/admin/emprestimos" element={<AdminRoute><AdminLoans /></AdminRoute>} />
+      <Route path="/admin/vendas" element={<AdminRoute><AdminSales /></AdminRoute>} />
+      <Route path="/admin/pendencias" element={<AdminRoute><AdminPendingConfirmations /></AdminRoute>} />
       
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

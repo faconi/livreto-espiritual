@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Trash2, Minus, Plus, BookMarked, QrCode, Copy, Check } from 'lucide-react';
+import { ShoppingCart, Trash2, Minus, Plus, QrCode, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,16 +22,10 @@ export default function Cart() {
   const [showPixDialog, setShowPixDialog] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const loanItems = items.filter(item => item.type === 'loan');
+  // Only purchase items - loans are handled separately
   const purchaseItems = items.filter(item => item.type === 'purchase');
 
   const pixKey = 'Pix@EvangelhoDeCristoOP.com.br';
-
-  // Generate a simple QR Code data URL (in production, use a proper library)
-  const generatePixCode = () => {
-    // Simplified PIX copy-paste code
-    return `00020126580014BR.GOV.BCB.PIX0136${pixKey}5204000053039865404${totalPrice.toFixed(2)}5802BR5925GEEC Evangelho de Cristo6009OURO PRET62070503***6304`;
-  };
 
   const handleCopyPix = () => {
     navigator.clipboard.writeText(pixKey);
@@ -46,16 +40,10 @@ export default function Cart() {
   const handleCheckout = () => {
     if (purchaseItems.length > 0) {
       setShowPixDialog(true);
-    } else {
-      toast({
-        title: 'Empréstimos solicitados!',
-        description: 'Aguarde a confirmação do administrador.',
-      });
-      clearCart();
     }
   };
 
-  if (items.length === 0) {
+  if (purchaseItems.length === 0) {
     return (
       <MainLayout>
         <div className="container py-16 text-center">
@@ -77,23 +65,27 @@ export default function Cart() {
       <div className="container py-8">
         <h1 className="text-3xl font-serif font-bold mb-8 flex items-center gap-3">
           <ShoppingCart className="text-primary" />
-          Carrinho
+          Carrinho de Compras
         </h1>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart items */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Loan items */}
-            {loanItems.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookMarked className="text-primary" size={20} />
-                    Empréstimos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {loanItems.map(item => (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingCart className="text-accent" size={20} />
+                  Compras ({purchaseItems.reduce((sum, i) => sum + i.quantity, 0)} itens)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {purchaseItems.map(item => {
+                  const price = item.book.salePrice || 0;
+                  const discount = item.book.discount || 0;
+                  const finalPrice = price * (1 - discount / 100);
+                  const maxQuantity = item.book.availableForSale;
+
+                  return (
                     <div key={item.book.id} className="flex gap-4">
                       <img
                         src={item.book.coverUrl || '/placeholder.svg'}
@@ -103,9 +95,37 @@ export default function Cart() {
                       <div className="flex-1">
                         <h3 className="font-semibold">{item.book.title}</h3>
                         <p className="text-sm text-muted-foreground">{item.book.author}</p>
-                        <Badge variant="secondary" className="mt-2">
-                          Gratuito - 30 dias
-                        </Badge>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="font-bold text-primary">
+                            R$ {finalPrice.toFixed(2)}
+                          </span>
+                          {discount > 0 && (
+                            <span className="text-sm text-muted-foreground line-through">
+                              R$ {price.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {maxQuantity} disponíveis em estoque
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => updateQuantity(item.book.id, item.quantity - 1)}
+                        >
+                          <Minus size={14} />
+                        </Button>
+                        <span className="w-8 text-center">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          disabled={item.quantity >= maxQuantity}
+                          onClick={() => updateQuantity(item.book.id, item.quantity + 1)}
+                        >
+                          <Plus size={14} />
+                        </Button>
                       </div>
                       <Button
                         variant="ghost"
@@ -115,102 +135,25 @@ export default function Cart() {
                         <Trash2 size={18} className="text-destructive" />
                       </Button>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Purchase items */}
-            {purchaseItems.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingCart className="text-accent" size={20} />
-                    Compras
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {purchaseItems.map(item => {
-                    const price = item.book.salePrice || 0;
-                    const discount = item.book.discount || 0;
-                    const finalPrice = price * (1 - discount / 100);
-
-                    return (
-                      <div key={item.book.id} className="flex gap-4">
-                        <img
-                          src={item.book.coverUrl || '/placeholder.svg'}
-                          alt={item.book.title}
-                          className="w-16 h-24 object-cover rounded"
-                        />
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{item.book.title}</h3>
-                          <p className="text-sm text-muted-foreground">{item.book.author}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="font-bold text-primary">
-                              R$ {finalPrice.toFixed(2)}
-                            </span>
-                            {discount > 0 && (
-                              <span className="text-sm text-muted-foreground line-through">
-                                R$ {price.toFixed(2)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => updateQuantity(item.book.id, item.quantity - 1)}
-                          >
-                            <Minus size={14} />
-                          </Button>
-                          <span className="w-8 text-center">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => updateQuantity(item.book.id, item.quantity + 1)}
-                          >
-                            <Plus size={14} />
-                          </Button>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFromCart(item.book.id)}
-                        >
-                          <Trash2 size={18} className="text-destructive" />
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
+                  );
+                })}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Order summary */}
           <div>
             <Card className="sticky top-24">
               <CardHeader>
-                <CardTitle>Resumo</CardTitle>
+                <CardTitle>Resumo do Pedido</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {loanItems.length > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Empréstimos ({loanItems.length})
-                    </span>
-                    <span className="font-medium">Grátis</span>
-                  </div>
-                )}
-                {purchaseItems.length > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Compras ({purchaseItems.reduce((sum, i) => sum + i.quantity, 0)})
-                    </span>
-                    <span className="font-medium">R$ {totalPrice.toFixed(2)}</span>
-                  </div>
-                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Subtotal ({purchaseItems.reduce((sum, i) => sum + i.quantity, 0)} itens)
+                  </span>
+                  <span className="font-medium">R$ {totalPrice.toFixed(2)}</span>
+                </div>
                 
                 <Separator />
                 
@@ -220,8 +163,12 @@ export default function Cart() {
                 </div>
 
                 <Button className="w-full" size="lg" onClick={handleCheckout}>
-                  {purchaseItems.length > 0 ? 'Finalizar Compra' : 'Solicitar Empréstimos'}
+                  Finalizar Compra
                 </Button>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Pagamento via PIX
+                </p>
               </CardContent>
             </Card>
           </div>
