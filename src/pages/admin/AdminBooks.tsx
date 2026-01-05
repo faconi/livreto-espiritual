@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Eye, Edit, Package, Users, History } from 'lucide-react';
+import { BookOpen, Eye, Edit, Package, Users, History, ScanBarcode, FileText } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { BarcodeScanner } from '@/components/books/BarcodeScanner';
+import { useToast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
 
 // Mock loan/sale history for books
 const mockBookHistory = {
@@ -34,8 +37,18 @@ const mockBookHistory = {
 
 export default function AdminBooks() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+
+  const handleSaveDrafts = (codes: string[]) => {
+    toast({
+      title: 'Rascunhos salvos',
+      description: `${codes.length} códigos foram salvos como rascunhos.`,
+    });
+    navigate('/admin/livros/rascunhos');
+  };
 
   const columns: ColumnDef<Book>[] = [
     {
@@ -135,9 +148,23 @@ export default function AdminBooks() {
   return (
     <MainLayout showFooter={false}>
       <div className="container py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <BookOpen className="text-primary" size={28} />
-          <h1 className="text-3xl font-serif font-bold">Gerenciar Livros</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <BookOpen className="text-primary" size={28} />
+            <h1 className="text-3xl font-serif font-bold">Gerenciar Livros</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/admin/livros/rascunhos">
+                <FileText size={16} className="mr-2" />
+                Rascunhos
+              </Link>
+            </Button>
+            <Button variant="outline" onClick={() => setScannerOpen(true)}>
+              <ScanBarcode size={16} className="mr-2" />
+              Escanear Códigos
+            </Button>
+          </div>
         </div>
 
         <DataTable
@@ -338,6 +365,13 @@ export default function AdminBooks() {
             </ScrollArea>
           </DialogContent>
         </Dialog>
+
+        {/* Barcode Scanner */}
+        <BarcodeScanner
+          open={scannerOpen}
+          onOpenChange={setScannerOpen}
+          onSaveDrafts={handleSaveDrafts}
+        />
       </div>
     </MainLayout>
   );

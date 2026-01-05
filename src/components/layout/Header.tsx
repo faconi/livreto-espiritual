@@ -10,7 +10,9 @@ import {
   BookOpen,
   LayoutDashboard,
   Activity,
-  ClipboardList
+  ClipboardList,
+  Bell,
+  Library
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/ui/Logo';
@@ -40,8 +42,12 @@ export function Header() {
 
   const navLinks = [
     { href: '/catalogo', label: 'Catálogo', icon: BookOpen },
+    { href: '/meus-livros', label: 'Meus Livros', icon: Library },
     ...(isAdmin ? [{ href: '/admin', label: 'Painel Admin', icon: LayoutDashboard }] : []),
   ];
+
+  // Mock pending notifications count
+  const pendingCount = isAdmin ? 5 : 2;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -68,6 +74,21 @@ export function Header() {
         <div className="flex items-center gap-3">
           {user ? (
             <>
+              {/* Notifications Bell */}
+              <Link to={isAdmin ? '/admin/pendencias' : '/minhas-atividades'} className="relative">
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell size={20} />
+                  {pendingCount > 0 && (
+                    <Badge 
+                      variant="destructive"
+                      className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                    >
+                      {pendingCount}
+                    </Badge>
+                  )}
+                </Button>
+              </Link>
+
               {/* Cart */}
               <Link to="/carrinho" className="relative">
                 <Button variant="ghost" size="icon" className="relative">

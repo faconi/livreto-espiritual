@@ -97,11 +97,16 @@ export default function BookDetail() {
                 {book.title}
               </h1>
               <p className="text-xl text-muted-foreground mt-2">
-                por {book.author}
+                Médium: {book.author}
               </p>
               {book.spiritAuthor && (
                 <p className="text-lg text-primary mt-1">
                   Espírito: {book.spiritAuthor}
+                </p>
+              )}
+              {book.edition && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {book.edition} edição
                 </p>
               )}
             </div>

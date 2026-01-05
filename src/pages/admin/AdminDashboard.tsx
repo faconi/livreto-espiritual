@@ -6,8 +6,11 @@ import {
   ShoppingBag, 
   BookMarked,
   TrendingUp,
-  AlertCircle,
-  Plus
+  ClipboardList,
+  Plus,
+  RefreshCw,
+  CreditCard,
+  RotateCcw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,10 +56,13 @@ const recentActivities = [
   { id: 4, type: 'user', message: 'Novo usuário cadastrado: Ana Oliveira', time: 'Há 1 dia' },
 ];
 
-const pendingReturns = [
-  { id: 1, user: 'Carlos Mendes', book: 'O Evangelho Segundo o Espiritismo', requestedAt: 'Há 1 dia' },
-  { id: 2, user: 'Lucia Ferreira', book: 'A Gênese', requestedAt: 'Há 2 dias' },
-];
+// Mock pending confirmations summary
+const pendingSummary = {
+  returns: 3,
+  renewals: 2,
+  payments: 1,
+  loanRequests: 4,
+};
 
 export default function AdminDashboard() {
   return (
@@ -102,44 +108,52 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Pending returns */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="text-warning" size={20} />
-                Devoluções Pendentes
-              </CardTitle>
-              <Badge variant="secondary">{pendingReturns.length}</Badge>
-            </CardHeader>
-            <CardContent>
-              {pendingReturns.length > 0 ? (
-                <div className="space-y-4">
-                  {pendingReturns.map((item) => (
-                    <div 
-                      key={item.id}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">{item.book}</p>
-                        <p className="text-sm text-muted-foreground">{item.user}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">{item.requestedAt}</p>
-                        <div className="flex gap-2 mt-2">
-                          <Button size="sm" variant="outline">Recusar</Button>
-                          <Button size="sm">Aceitar</Button>
-                        </div>
-                      </div>
+          {/* Pending Confirmations Card */}
+          <Link to="/admin/pendencias">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="text-primary" size={20} />
+                  Confirmações Pendentes
+                </CardTitle>
+                <Badge>
+                  {pendingSummary.returns + pendingSummary.renewals + pendingSummary.payments + pendingSummary.loanRequests}
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <RotateCcw size={16} className="text-blue-500" />
+                      <span>Devoluções</span>
                     </div>
-                  ))}
+                    <Badge variant="secondary">{pendingSummary.returns}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw size={16} className="text-yellow-500" />
+                      <span>Renovações</span>
+                    </div>
+                    <Badge variant="secondary">{pendingSummary.renewals}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CreditCard size={16} className="text-green-500" />
+                      <span>Pagamentos</span>
+                    </div>
+                    <Badge variant="secondary">{pendingSummary.payments}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <BookMarked size={16} className="text-purple-500" />
+                      <span>Novos Empréstimos</span>
+                    </div>
+                    <Badge variant="secondary">{pendingSummary.loanRequests}</Badge>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-center text-muted-foreground py-4">
-                  Nenhuma devolução pendente
-                </p>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
 
           {/* Recent activity */}
           <Card>
@@ -170,42 +184,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Quick links */}
-        <div className="grid sm:grid-cols-3 gap-4 mt-8">
-          <Link to="/admin/livros">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <CardContent className="p-6 flex items-center gap-4">
-                <BookOpen size={24} className="text-primary" />
-                <div>
-                  <p className="font-semibold">Gerenciar Livros</p>
-                  <p className="text-sm text-muted-foreground">Cadastro e estoque</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link to="/admin/usuarios">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <CardContent className="p-6 flex items-center gap-4">
-                <Users size={24} className="text-primary" />
-                <div>
-                  <p className="font-semibold">Gerenciar Usuários</p>
-                  <p className="text-sm text-muted-foreground">Clientes e histórico</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link to="/admin/emprestimos">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <CardContent className="p-6 flex items-center gap-4">
-                <BookMarked size={24} className="text-primary" />
-                <div>
-                  <p className="font-semibold">Empréstimos</p>
-                  <p className="text-sm text-muted-foreground">Controle e devoluções</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
       </div>
     </MainLayout>
   );

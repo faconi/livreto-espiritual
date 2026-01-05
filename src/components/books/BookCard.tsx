@@ -119,7 +119,9 @@ export function BookCard({ book, className, onWishlistToggle, isInWishlist }: Bo
             <h3 className="font-serif font-semibold line-clamp-2 leading-tight">
               {book.title}
             </h3>
-            <p className="text-sm text-muted-foreground">{book.author}</p>
+            <p className="text-sm text-muted-foreground">
+              Médium: {book.author}
+            </p>
             {book.spiritAuthor && (
               <p className="text-xs text-primary">
                 Espírito: {book.spiritAuthor}
