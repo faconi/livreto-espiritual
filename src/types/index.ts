@@ -16,14 +16,17 @@ export interface Book {
   id: string;
   isbn?: string;
   title: string;
-  author: string;
-  spiritAuthor?: string;
+  author: string;           // Autor (Médium) - quem psicografou
+  spiritAuthor?: string;    // Espírito autor
   publisher: string;
   coverUrl?: string;
   description?: string;
   category?: string;
+  edition?: string;         // Edição (ex: "1ª", "2ª revista")
   year?: number;
   pages?: number;
+  publishDate?: Date;       // Data de publicação
+  tags?: string[];          // Tags para categorização
   
   // Inventory
   quantityForLoan: number;
@@ -44,6 +47,16 @@ export interface Book {
   
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface BookDraft {
+  id: string;
+  isbn?: string;
+  barcode?: string;
+  status: 'pending' | 'found' | 'error';
+  bookData?: Partial<Book>;
+  createdAt: Date;
+  errorMessage?: string;
 }
 
 export interface Loan {

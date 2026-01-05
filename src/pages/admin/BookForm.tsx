@@ -26,14 +26,16 @@ import { Link } from 'react-router-dom';
 const bookSchema = z.object({
   isbn: z.string().optional(),
   title: z.string().min(1, 'Título é obrigatório'),
-  author: z.string().min(1, 'Autor é obrigatório'),
+  author: z.string().min(1, 'Autor (Médium) é obrigatório'),
   spiritAuthor: z.string().optional(),
   publisher: z.string().min(1, 'Editora é obrigatória'),
   category: z.string().optional(),
+  edition: z.string().optional(),
   year: z.string().optional(),
   pages: z.string().optional(),
   description: z.string().optional(),
   coverUrl: z.string().optional(),
+  tags: z.string().optional(),
   
   quantityForLoan: z.string(),
   quantityForSale: z.string(),
@@ -68,10 +70,12 @@ export default function BookForm() {
       spiritAuthor: '',
       publisher: '',
       category: '',
+      edition: '',
       year: '',
       pages: '',
       description: '',
       coverUrl: '',
+      tags: '',
       quantityForLoan: '0',
       quantityForSale: '0',
       acquisitionPrice: '',
@@ -96,10 +100,12 @@ export default function BookForm() {
           spiritAuthor: book.spiritAuthor || '',
           publisher: book.publisher,
           category: book.category || '',
+          edition: book.edition || '',
           year: book.year?.toString() || '',
           pages: book.pages?.toString() || '',
           description: book.description || '',
           coverUrl: book.coverUrl || '',
+          tags: book.tags?.join(', ') || '',
           quantityForLoan: book.quantityForLoan.toString(),
           quantityForSale: book.quantityForSale.toString(),
           acquisitionPrice: book.acquisitionPrice?.toString() || '',
@@ -257,9 +263,9 @@ export default function BookForm() {
                     name="author"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Autor *</FormLabel>
+                        <FormLabel>Autor (Médium) *</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input placeholder="Ex: Chico Xavier, Zíbia Gasparetto" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -305,7 +311,7 @@ export default function BookForm() {
                   />
                 </div>
 
-                <div className="grid sm:grid-cols-3 gap-4">
+                <div className="grid sm:grid-cols-4 gap-4">
                   <FormField
                     control={form.control}
                     name="category"
@@ -324,6 +330,19 @@ export default function BookForm() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="edition"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Edição</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: 1ª, 2ª revista" {...field} />
+                        </FormControl>
                       </FormItem>
                     )}
                   />
@@ -360,10 +379,26 @@ export default function BookForm() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Descrição</FormLabel>
+                      <FormLabel>Descrição / Resumo</FormLabel>
                       <FormControl>
                         <Textarea rows={4} {...field} />
                       </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tags</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Romance, Ética, Filosofia (separadas por vírgula)" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Separe as tags por vírgula para facilitar a busca
+                      </FormDescription>
                     </FormItem>
                   )}
                 />

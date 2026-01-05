@@ -68,11 +68,14 @@ export function BookListItem({ book, onView, onWishlistToggle, isInWishlist }: B
               >
                 {book.title}
               </Link>
-              <p className="text-sm text-muted-foreground">{book.author}</p>
-              {book.spiritAuthor && (
-                <p className="text-xs text-primary">Espírito: {book.spiritAuthor}</p>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">{book.publisher}</p>
+              <p className="text-sm text-muted-foreground">
+                Médium: {book.author}
+                {book.spiritAuthor && ` | Espírito: ${book.spiritAuthor}`}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                <span>{book.publisher}</span>
+                {book.edition && <span>• {book.edition} ed.</span>}
+              </div>
             </div>
 
             <div className="text-right shrink-0 flex items-start gap-2">

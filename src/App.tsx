@@ -22,7 +22,9 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminLoans from "./pages/admin/AdminLoans";
 import AdminSales from "./pages/admin/AdminSales";
 import AdminPendingConfirmations from "./pages/admin/AdminPendingConfirmations";
+import AdminSettings from "./pages/admin/AdminSettings";
 import BookForm from "./pages/admin/BookForm";
+import BookDrafts from "./pages/admin/BookDrafts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -95,6 +97,8 @@ function AppRoutes() {
       <Route path="/admin/emprestimos" element={<AdminRoute><AdminLoans /></AdminRoute>} />
       <Route path="/admin/vendas" element={<AdminRoute><AdminSales /></AdminRoute>} />
       <Route path="/admin/pendencias" element={<AdminRoute><AdminPendingConfirmations /></AdminRoute>} />
+      <Route path="/admin/configuracoes" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+      <Route path="/admin/livros/rascunhos" element={<AdminRoute><BookDrafts /></AdminRoute>} />
       
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
