@@ -217,64 +217,69 @@ export default function MyBooks() {
 
     return (
       <Card className="hover:shadow-md transition-shadow">
-        <CardContent className="p-4">
-          <div className="flex gap-4">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex gap-3 sm:gap-4">
             <img
               src={loan.bookCover}
               alt={loan.bookTitle}
-              className="w-16 h-24 object-cover rounded cursor-pointer"
+              className="w-12 h-18 sm:w-16 sm:h-24 object-cover rounded cursor-pointer flex-shrink-0"
               onClick={() => navigate(`/livro/${loan.bookId}`)}
             />
             <div className="flex-1 min-w-0">
               <h3 
-                className="font-semibold line-clamp-2 hover:text-primary cursor-pointer transition-colors"
+                className="font-semibold line-clamp-2 hover:text-primary cursor-pointer transition-colors text-sm sm:text-base"
                 onClick={() => navigate(`/livro/${loan.bookId}`)}
               >
                 {loan.bookTitle}
               </h3>
-              <p className="text-sm text-muted-foreground">{loan.bookAuthor}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">{loan.bookAuthor}</p>
               
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant={config.variant}>
-                  <StatusIcon size={14} className="mr-1" />
-                  {config.label}
+              <div className="flex items-center gap-2 mt-1.5 sm:mt-2">
+                <Badge variant={config.variant} className="text-[10px] sm:text-xs px-1.5 sm:px-2">
+                  <StatusIcon size={12} className="mr-0.5 sm:mr-1" />
+                  <span className="hidden xs:inline">{config.label}</span>
+                  <span className="xs:hidden">
+                    {loan.status === 'active' ? 'Ativo' : 
+                     loan.status === 'pending_return' ? 'Dev. Pend.' : 
+                     loan.status === 'pending_renewal' ? 'Ren. Pend.' : 'Devolvido'}
+                  </span>
                 </Badge>
               </div>
 
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2">
                 Emprestado: {loan.borrowedAt.toLocaleDateString('pt-BR')}
               </p>
               {loan.status === 'active' && (
-                <p className={`text-xs mt-1 ${loan.daysLeft <= 5 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                <p className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 ${loan.daysLeft <= 5 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                   {loan.daysLeft > 0 ? `${loan.daysLeft} dias para devolução` : 'Vence hoje!'}
                 </p>
               )}
 
               {loan.status === 'active' && (
-                <div className="mt-3 flex gap-2">
+                <div className="mt-2 sm:mt-3 flex gap-1.5 sm:gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 h-8 text-xs sm:text-sm px-2"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedLoanForReturn(loan);
                     }}
                   >
-                    <RotateCcw size={14} className="mr-1" />
-                    Devolver
+                    <RotateCcw size={12} className="sm:mr-1" />
+                    <span className="hidden sm:inline">Devolver</span>
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 h-8 text-xs sm:text-sm px-2"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedLoanForRenewal(loan);
                     }}
                   >
-                    <RefreshCw size={14} className="mr-1" />
-                    Renovar
+                    <RefreshCw size={12} className="sm:mr-1" />
+                    <span className="hidden sm:inline">Renovar</span>
                   </Button>
                 </div>
               )}
@@ -287,41 +292,41 @@ export default function MyBooks() {
 
   return (
     <MainLayout>
-      <div className="container py-8 max-w-6xl">
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-serif font-bold flex items-center gap-3">
-              <BookOpen className="text-primary" />
+      <div className="container py-4 sm:py-8 px-3 sm:px-4 max-w-6xl">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold flex items-center justify-center sm:justify-start gap-2 sm:gap-3">
+              <BookOpen className="text-primary w-6 h-6 sm:w-8 sm:h-8" />
               Meus Livros
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Empréstimos ativos, histórico, lista de desejos e recomendações
             </p>
           </div>
 
-          <Tabs defaultValue="active" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="active" className="flex items-center gap-2">
+          <Tabs defaultValue="active" className="space-y-4 sm:space-y-6">
+            <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+              <TabsTrigger value="active" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 py-2 px-1 sm:px-3 text-xs sm:text-sm">
                 <Clock size={16} />
-                <span className="hidden sm:inline">Ativos</span>
+                <span className="hidden xs:inline">Ativos</span>
                 {activeLoans.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">{activeLoans.length}</Badge>
+                  <Badge variant="secondary" className="text-[10px] sm:text-xs h-4 sm:h-5 px-1 sm:px-1.5">{activeLoans.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="history" className="flex items-center gap-2">
+              <TabsTrigger value="history" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 py-2 px-1 sm:px-3 text-xs sm:text-sm">
                 <History size={16} />
-                <span className="hidden sm:inline">Histórico</span>
+                <span className="hidden xs:inline">Histórico</span>
               </TabsTrigger>
-              <TabsTrigger value="wishlist" className="flex items-center gap-2">
+              <TabsTrigger value="wishlist" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 py-2 px-1 sm:px-3 text-xs sm:text-sm">
                 <Heart size={16} />
-                <span className="hidden sm:inline">Desejos</span>
+                <span className="hidden xs:inline">Desejos</span>
                 {wishlistBooks.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">{wishlistBooks.length}</Badge>
+                  <Badge variant="secondary" className="text-[10px] sm:text-xs h-4 sm:h-5 px-1 sm:px-1.5">{wishlistBooks.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="suggestions" className="flex items-center gap-2">
+              <TabsTrigger value="suggestions" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 py-2 px-1 sm:px-3 text-xs sm:text-sm">
                 <Sparkles size={16} />
-                <span className="hidden sm:inline">Sugestões</span>
+                <span className="hidden xs:inline">Sugestões</span>
               </TabsTrigger>
             </TabsList>
 

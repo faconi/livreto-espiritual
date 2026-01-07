@@ -151,8 +151,64 @@ export function DataTable<T>({
   );
 
   const renderTableView = () => (
-    <div className="border rounded-lg overflow-hidden">
-      <Table>
+    <div className="border rounded-lg overflow-hidden overflow-x-auto">
+      {/* Mobile: Show cards view instead of table */}
+      <div className="block md:hidden">
+        {sortedData.length > 0 ? (
+          <div className="divide-y">
+            {sortedData.map((row, index) => (
+              <div
+                key={String(row[idField]) || index}
+                className={`p-4 ${onRowClick ? 'cursor-pointer active:bg-muted/50' : ''}`}
+                onClick={() => onRowClick?.(row)}
+              >
+                <div className="space-y-2">
+                  {columns.slice(0, 4).map((column, colIndex) => {
+                    const value = column.cell 
+                      ? column.cell(row) 
+                      : String(getCellValue(row, column.id) ?? '-');
+                    return (
+                      <div key={column.id} className={colIndex === 0 ? 'font-medium' : 'text-sm text-muted-foreground'}>
+                        {colIndex === 0 ? (
+                          value
+                        ) : (
+                          <span><span className="text-xs opacity-70">{column.header as string}: </span>{value}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {isAdmin && onEdit && (
+                  <div className="mt-3 pt-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(row);
+                      }}
+                    >
+                      <Pencil size={14} className="mr-2" />
+                      Editar
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 text-center">
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              {emptyIcon}
+              <p>{emptyMessage}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: Standard table view */}
+      <Table className="hidden md:table">
         <DataTableHeader
           columns={columns}
           sortConfig={sortConfig}

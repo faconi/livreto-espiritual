@@ -114,36 +114,36 @@ export function BookCard({ book, className, onWishlistToggle, isInWishlist }: Bo
           </div>
         </div>
 
-        <CardContent className="p-4 space-y-2">
+        <CardContent className="p-3 sm:p-4 space-y-2">
           <div>
-            <h3 className="font-serif font-semibold line-clamp-2 leading-tight">
+            <h3 className="font-serif font-semibold line-clamp-2 leading-tight text-sm sm:text-base">
               {book.title}
             </h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Médium: {book.author}
             </p>
             {book.spiritAuthor && (
-              <p className="text-xs text-primary">
+              <p className="text-[10px] sm:text-xs text-primary">
                 Espírito: {book.spiritAuthor}
               </p>
             )}
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-1 sm:pt-2">
             <div>
               {book.salePrice ? (
-                <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-bold text-primary">
+                <div className="flex items-baseline gap-1 sm:gap-2">
+                  <span className="text-base sm:text-lg font-bold text-primary">
                     R$ {finalPrice.toFixed(2)}
                   </span>
                   {hasDiscount && (
-                    <span className="text-sm text-muted-foreground line-through">
+                    <span className="text-[10px] sm:text-sm text-muted-foreground line-through">
                       R$ {book.salePrice.toFixed(2)}
                     </span>
                   )}
                 </div>
               ) : (
-                <span className="text-sm text-muted-foreground">
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   Apenas empréstimo
                 </span>
               )}
@@ -151,14 +151,14 @@ export function BookCard({ book, className, onWishlistToggle, isInWishlist }: Bo
           </div>
 
           {/* Availability */}
-          <div className="flex gap-2 text-xs">
+          <div className="flex gap-1 sm:gap-2 flex-wrap">
             {book.availableForLoan > 0 && (
-              <Badge variant="outline" className="text-xs">
-                {book.availableForLoan} p/ empréstimo
+              <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 py-0.5">
+                {book.availableForLoan} p/ emp.
               </Badge>
             )}
             {book.availableForSale > 0 && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 py-0.5">
                 {book.availableForSale} p/ venda
               </Badge>
             )}
@@ -166,30 +166,30 @@ export function BookCard({ book, className, onWishlistToggle, isInWishlist }: Bo
 
           {/* Actions */}
           {user && (
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-1.5 sm:gap-2 pt-1 sm:pt-2">
               {canLoan && (
                 <Button
                   size="sm"
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 h-8 text-xs sm:text-sm px-2"
                   onClick={() => setLoanDialogOpen(true)}
                 >
-                  <BookMarked size={14} className="mr-1" />
-                  Emprestar
+                  <BookMarked size={14} className="sm:mr-1" />
+                  <span className="hidden sm:inline">Emprestar</span>
                 </Button>
               )}
               {canBuy && (
                 <Button
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 h-8 text-xs sm:text-sm px-2"
                   onClick={() => addToCart(book, 'purchase')}
                 >
-                  <ShoppingCart size={14} className="mr-1" />
-                  Comprar
+                  <ShoppingCart size={14} className="sm:mr-1" />
+                  <span className="hidden sm:inline">Comprar</span>
                 </Button>
               )}
               {!canLoan && !canBuy && (
-                <Badge variant="secondary" className="w-full justify-center py-1">
+                <Badge variant="secondary" className="w-full justify-center py-1 text-xs">
                   Indisponível
                 </Badge>
               )}
