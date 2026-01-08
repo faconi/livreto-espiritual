@@ -269,9 +269,47 @@ export function DataTable<T>({
   );
 
   const renderCardsView = () => {
-    if (!renderCard) {
-      return renderTableView();
-    }
+    // Fallback to mobile card rendering if no custom renderCard
+    const renderDefaultCard = (row: T, index: number) => (
+      <div 
+        key={String(row[idField]) || index}
+        className={`p-4 border rounded-lg bg-card ${onRowClick ? 'cursor-pointer active:bg-muted/50' : ''}`}
+        onClick={() => onRowClick?.(row)}
+      >
+        <div className="space-y-2">
+          {columns.slice(0, 4).map((column, colIndex) => {
+            const value = column.cell 
+              ? column.cell(row) 
+              : String(getCellValue(row, column.id) ?? '-');
+            return (
+              <div key={column.id} className={colIndex === 0 ? 'font-medium' : 'text-sm text-muted-foreground'}>
+                {colIndex === 0 ? (
+                  value
+                ) : (
+                  <span><span className="text-xs opacity-70">{column.header as string}: </span>{value}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {isAdmin && onEdit && (
+          <div className="mt-3 pt-3 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(row);
+              }}
+            >
+              <Pencil size={14} className="mr-2" />
+              Editar
+            </Button>
+          </div>
+        )}
+      </div>
+    );
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -280,9 +318,9 @@ export function DataTable<T>({
             <div 
               key={String(item[idField]) || index}
               className={onRowClick ? 'cursor-pointer' : ''}
-              onClick={() => onRowClick?.(item)}
+              onClick={renderCard ? (() => onRowClick?.(item)) : undefined}
             >
-              {renderCard(item, index)}
+              {renderCard ? renderCard(item, index) : renderDefaultCard(item, index)}
             </div>
           ))
         ) : (
@@ -298,9 +336,48 @@ export function DataTable<T>({
   };
 
   const renderListView = () => {
-    if (!renderListItem) {
-      return renderTableView();
-    }
+    // Fallback to detailed list rendering if no custom renderListItem
+    const renderDefaultListItem = (row: T, index: number) => (
+      <div 
+        key={String(row[idField]) || index}
+        className={`p-4 border rounded-lg bg-card ${onRowClick ? 'cursor-pointer active:bg-muted/50' : ''}`}
+        onClick={() => onRowClick?.(row)}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 space-y-1">
+            {columns.map((column, colIndex) => {
+              const value = column.cell 
+                ? column.cell(row) 
+                : String(getCellValue(row, column.id) ?? '-');
+              return (
+                <div key={column.id} className={colIndex === 0 ? 'font-medium text-base' : 'text-sm text-muted-foreground'}>
+                  {colIndex === 0 ? (
+                    value
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-xs opacity-70">{column.header as string}:</span> {value}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {isAdmin && onEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(row);
+              }}
+            >
+              <Pencil size={14} className="mr-2" />
+              Editar
+            </Button>
+          )}
+        </div>
+      </div>
+    );
 
     return (
       <div className="space-y-3">
@@ -308,10 +385,10 @@ export function DataTable<T>({
           sortedData.map((item, index) => (
             <div 
               key={String(item[idField]) || index}
-              className={onRowClick ? 'cursor-pointer' : ''}
-              onClick={() => onRowClick?.(item)}
+              className={onRowClick && renderListItem ? 'cursor-pointer' : ''}
+              onClick={renderListItem ? (() => onRowClick?.(item)) : undefined}
             >
-              {renderListItem(item, index)}
+              {renderListItem ? renderListItem(item, index) : renderDefaultListItem(item, index)}
             </div>
           ))
         ) : (
