@@ -157,31 +157,32 @@ export default function AdminPendingConfirmations() {
 
   return (
     <MainLayout showFooter={false}>
-      <div className="container py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <ClipboardList className="text-primary" size={28} />
+      <div className="container py-4 sm:py-8 px-3 sm:px-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <ClipboardList className="text-primary" size={24} />
           <div>
-            <h1 className="text-3xl font-serif font-bold">Confirmações Pendentes</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl sm:text-3xl font-serif font-bold">Confirmações Pendentes</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Aprovar ou recusar solicitações de usuários
             </p>
           </div>
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
           {Object.entries(typeConfig).map(([type, config]) => {
             const count = groupedByType[type]?.length || 0;
             const Icon = config.icon;
             return (
               <Card key={type} className={count > 0 ? 'border-primary/30' : ''}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-full ${config.color} flex items-center justify-center`}>
-                    <Icon size={20} />
+                <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+                  <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full ${config.color} flex items-center justify-center shrink-0`}>
+                    <Icon size={16} className="sm:hidden" />
+                    <Icon size={20} className="hidden sm:block" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold">{count}</p>
-                    <p className="text-xs text-muted-foreground">{config.label}</p>
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-2xl font-bold">{count}</p>
+                    <p className="text-xs text-muted-foreground truncate">{config.label}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -192,15 +193,15 @@ export default function AdminPendingConfirmations() {
         {/* Pending Items */}
         {pendingItems.length > 0 ? (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock size={20} className="text-yellow-600" />
+            <CardHeader className="pb-2 sm:pb-4">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Clock size={18} className="text-yellow-600" />
                 {pendingItems.length} Pendência{pendingItems.length > 1 ? 's' : ''}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="max-h-[600px]">
-                <div className="space-y-4">
+            <CardContent className="p-3 sm:p-6">
+              <ScrollArea className="max-h-[500px] sm:max-h-[600px]">
+                <div className="space-y-3 sm:space-y-4">
                   {pendingItems.map(item => {
                     const config = typeConfig[item.type];
                     const Icon = config.icon;
@@ -208,53 +209,58 @@ export default function AdminPendingConfirmations() {
                     return (
                       <div 
                         key={item.id}
-                        className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+                        className="p-3 sm:p-4 border rounded-lg hover:shadow-md transition-shadow"
                       >
-                        <div className="flex items-start gap-4">
-                          <div className={`h-10 w-10 rounded-full ${config.color} flex items-center justify-center shrink-0`}>
-                            <Icon size={20} />
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                          <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full ${config.color} flex items-center justify-center shrink-0 self-start`}>
+                            <Icon size={16} className="sm:hidden" />
+                            <Icon size={20} className="hidden sm:block" />
                           </div>
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge className={config.color}>{config.label}</Badge>
-                              <span className="font-medium">{item.itemTitle}</span>
+                              <Badge className={`${config.color} text-xs`}>{config.label}</Badge>
+                              <span className="font-medium text-sm sm:text-base line-clamp-2">{item.itemTitle}</span>
                             </div>
 
-                            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-2 text-xs sm:text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <User size={14} />
+                                <User size={12} className="sm:hidden" />
+                                <User size={14} className="hidden sm:block" />
                                 {item.userName}
                               </span>
                               <span className="flex items-center gap-1">
-                                <Calendar size={14} />
-                                {format(item.requestedAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                <Calendar size={12} className="sm:hidden" />
+                                <Calendar size={14} className="hidden sm:block" />
+                                {format(item.requestedAt, "dd/MM 'às' HH:mm", { locale: ptBR })}
                               </span>
                             </div>
 
                             {item.justification && (
-                              <div className="mt-3 p-3 bg-muted rounded-lg">
+                              <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-muted rounded-lg">
                                 <p className="text-xs font-medium text-muted-foreground mb-1">
-                                  Justificativa do usuário:
+                                  Justificativa:
                                 </p>
-                                <p className="text-sm">{item.justification}</p>
+                                <p className="text-xs sm:text-sm">{item.justification}</p>
                               </div>
                             )}
 
-                            <div className="flex gap-2 mt-4">
+                            <div className="flex gap-2 mt-3 sm:mt-4">
                               <Button
                                 variant="outline"
-                                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                                size="sm"
+                                className="flex-1 sm:flex-none text-destructive border-destructive/30 hover:bg-destructive/10"
                                 onClick={() => handleAction(item, 'reject')}
                               >
-                                <X size={16} className="mr-1" />
+                                <X size={14} className="mr-1" />
                                 Recusar
                               </Button>
                               <Button
-                                className="bg-green-600 hover:bg-green-700"
+                                size="sm"
+                                className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700"
                                 onClick={() => handleAction(item, 'approve')}
                               >
-                                <Check size={16} className="mr-1" />
+                                <Check size={14} className="mr-1" />
                                 Aprovar
                               </Button>
                             </div>
@@ -269,10 +275,10 @@ export default function AdminPendingConfirmations() {
           </Card>
         ) : (
           <Card>
-            <CardContent className="py-12 text-center">
-              <Check size={48} className="mx-auto text-green-500 mb-4" />
-              <h3 className="font-medium text-lg">Tudo em dia!</h3>
-              <p className="text-muted-foreground mt-1">
+            <CardContent className="py-8 sm:py-12 text-center">
+              <Check size={40} className="mx-auto text-green-500 mb-3 sm:mb-4" />
+              <h3 className="font-medium text-base sm:text-lg">Tudo em dia!</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 Não há confirmações pendentes no momento.
               </p>
             </CardContent>

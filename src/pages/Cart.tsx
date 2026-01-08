@@ -62,23 +62,23 @@ export default function Cart() {
 
   return (
     <MainLayout>
-      <div className="container py-8">
-        <h1 className="text-3xl font-serif font-bold mb-8 flex items-center gap-3">
-          <ShoppingCart className="text-primary" />
+      <div className="container py-4 sm:py-8 px-3 sm:px-6">
+        <h1 className="text-xl sm:text-3xl font-serif font-bold mb-4 sm:mb-8 flex items-center gap-2 sm:gap-3">
+          <ShoppingCart className="text-primary" size={24} />
           Carrinho de Compras
         </h1>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Cart items */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="text-accent" size={20} />
+              <CardHeader className="pb-2 sm:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <ShoppingCart className="text-accent" size={18} />
                   Compras ({purchaseItems.reduce((sum, i) => sum + i.quantity, 0)} itens)
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-3 sm:p-6">
                 {purchaseItems.map(item => {
                   const price = item.book.salePrice || 0;
                   const discount = item.book.discount || 0;
@@ -86,54 +86,61 @@ export default function Cart() {
                   const maxQuantity = item.book.availableForSale;
 
                   return (
-                    <div key={item.book.id} className="flex gap-4">
-                      <img
-                        src={item.book.coverUrl || '/placeholder.svg'}
-                        alt={item.book.title}
-                        className="w-16 h-24 object-cover rounded"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{item.book.title}</h3>
-                        <p className="text-sm text-muted-foreground">{item.book.author}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="font-bold text-primary">
-                            R$ {finalPrice.toFixed(2)}
-                          </span>
-                          {discount > 0 && (
-                            <span className="text-sm text-muted-foreground line-through">
-                              R$ {price.toFixed(2)}
+                    <div key={item.book.id} className="flex flex-col sm:flex-row gap-3 sm:gap-4 p-3 bg-muted/30 rounded-lg">
+                      <div className="flex gap-3">
+                        <img
+                          src={item.book.coverUrl || '/placeholder.svg'}
+                          alt={item.book.title}
+                          className="w-14 h-20 sm:w-16 sm:h-24 object-cover rounded shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm sm:text-base line-clamp-2">{item.book.title}</h3>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{item.book.author}</p>
+                          <div className="flex items-center gap-2 mt-1 sm:mt-2">
+                            <span className="font-bold text-primary text-sm sm:text-base">
+                              R$ {finalPrice.toFixed(2)}
                             </span>
-                          )}
+                            {discount > 0 && (
+                              <span className="text-xs sm:text-sm text-muted-foreground line-through">
+                                R$ {price.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {maxQuantity} disponíveis
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {maxQuantity} disponíveis em estoque
-                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50">
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.book.id, item.quantity - 1)}
+                          >
+                            <Minus size={14} />
+                          </Button>
+                          <span className="w-6 sm:w-8 text-center text-sm">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={item.quantity >= maxQuantity}
+                            onClick={() => updateQuantity(item.book.id, item.quantity + 1)}
+                          >
+                            <Plus size={14} />
+                          </Button>
+                        </div>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="icon"
-                          onClick={() => updateQuantity(item.book.id, item.quantity - 1)}
+                          className="h-8 w-8"
+                          onClick={() => removeFromCart(item.book.id)}
                         >
-                          <Minus size={14} />
-                        </Button>
-                        <span className="w-8 text-center">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          disabled={item.quantity >= maxQuantity}
-                          onClick={() => updateQuantity(item.book.id, item.quantity + 1)}
-                        >
-                          <Plus size={14} />
+                          <Trash2 size={16} className="text-destructive" />
                         </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeFromCart(item.book.id)}
-                      >
-                        <Trash2 size={18} className="text-destructive" />
-                      </Button>
                     </div>
                   );
                 })}
@@ -143,12 +150,12 @@ export default function Cart() {
 
           {/* Order summary */}
           <div>
-            <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle>Resumo do Pedido</CardTitle>
+            <Card className="sticky top-20 sm:top-24">
+              <CardHeader className="pb-2 sm:pb-4">
+                <CardTitle className="text-base sm:text-lg">Resumo do Pedido</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
+              <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
+                <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-muted-foreground">
                     Subtotal ({purchaseItems.reduce((sum, i) => sum + i.quantity, 0)} itens)
                   </span>
@@ -157,7 +164,7 @@ export default function Cart() {
                 
                 <Separator />
                 
-                <div className="flex justify-between text-lg font-bold">
+                <div className="flex justify-between text-base sm:text-lg font-bold">
                   <span>Total</span>
                   <span className="text-primary">R$ {totalPrice.toFixed(2)}</span>
                 </div>

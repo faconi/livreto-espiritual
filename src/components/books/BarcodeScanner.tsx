@@ -28,8 +28,20 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
   const [scannerActive, setScannerActive] = useState(false);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const manualInputRef = useRef<HTMLInputElement>(null);
+  const lastScannedRef = useRef<string>('');
+  const scanCooldownRef = useRef<number>(0);
 
   const handleScanSuccess = useCallback((decodedText: string) => {
+    const now = Date.now();
+    
+    // Prevent duplicate scans within 2 seconds cooldown
+    if (decodedText === lastScannedRef.current && now - scanCooldownRef.current < 2000) {
+      return;
+    }
+    
+    lastScannedRef.current = decodedText;
+    scanCooldownRef.current = now;
+
     if (!scannedCodes.includes(decodedText)) {
       setScannedCodes(prev => [...prev, decodedText]);
       toast({
