@@ -23,75 +23,8 @@ import { Activity as ActivityType } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Mock activities
-const mockActivities: ActivityType[] = [
-  {
-    id: 'a1',
-    userId: '2',
-    type: 'loan_confirmed',
-    title: 'Empréstimo confirmado',
-    description: 'Você solicitou o empréstimo de "O Livro dos Espíritos"',
-    itemId: '1',
-    itemTitle: 'O Livro dos Espíritos',
-    createdAt: new Date('2024-01-15T10:30:00'),
-    actionUrl: '/meus-livros',
-  },
-  {
-    id: 'a2',
-    userId: '2',
-    type: 'purchase',
-    title: 'Compra realizada',
-    description: 'Você comprou "O Evangelho Segundo o Espiritismo"',
-    itemId: '2',
-    itemTitle: 'O Evangelho Segundo o Espiritismo',
-    createdAt: new Date('2024-01-10T14:20:00'),
-    metadata: { total: 42 },
-    actionUrl: '/meus-livros',
-  },
-  {
-    id: 'a3',
-    userId: '2',
-    type: 'payment_pending',
-    title: 'Pagamento pendente',
-    description: 'Aguardando confirmação de pagamento de R$ 42,00',
-    itemId: 's1',
-    createdAt: new Date('2024-01-10T14:20:00'),
-    isAlert: true,
-    actionUrl: '/carrinho',
-  },
-  {
-    id: 'a4',
-    userId: '2',
-    type: 'loan_return_requested',
-    title: 'Devolução solicitada',
-    description: 'Você solicitou devolução de "Nosso Lar"',
-    itemId: '3',
-    itemTitle: 'Nosso Lar',
-    createdAt: new Date('2024-01-08T09:15:00'),
-    actionUrl: '/meus-livros',
-  },
-  {
-    id: 'a5',
-    userId: '2',
-    type: 'message_received',
-    title: 'Nova mensagem',
-    description: 'Administrador: Seu empréstimo foi renovado',
-    itemId: 'm1',
-    createdAt: new Date('2024-01-05T16:45:00'),
-    actionUrl: '/minhas-atividades',
-  },
-  {
-    id: 'a6',
-    userId: '2',
-    type: 'wishlist_add',
-    title: 'Adicionado à lista de desejos',
-    description: '"Paulo e Estêvão" foi adicionado à sua lista',
-    itemId: '4',
-    itemTitle: 'Paulo e Estêvão',
-    createdAt: new Date('2024-01-03T11:00:00'),
-    actionUrl: '/meus-livros',
-  },
-];
+// Activities will come from context in real implementation
+import { useActivity } from '@/contexts/ActivityContext';
 
 // Mock alerts (pending items, failed payments, etc.)
 const mockAlerts = [
@@ -142,21 +75,22 @@ const activityColors: Record<ActivityType['type'], string> = {
 export default function MyActivities() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { activities } = useActivity();
   const [filter, setFilter] = useState<'all' | 'loans' | 'purchases' | 'messages'>('all');
 
   const filteredActivities = useMemo(() => {
-    if (filter === 'all') return mockActivities;
-    if (filter === 'loans') return mockActivities.filter(a => 
+    if (filter === 'all') return activities;
+    if (filter === 'loans') return activities.filter(a => 
       a.type.startsWith('loan_')
     );
-    if (filter === 'purchases') return mockActivities.filter(a => 
+    if (filter === 'purchases') return activities.filter(a => 
       a.type === 'purchase' || a.type.startsWith('payment_')
     );
-    if (filter === 'messages') return mockActivities.filter(a => 
+    if (filter === 'messages') return activities.filter(a => 
       a.type.startsWith('message_')
     );
-    return mockActivities;
-  }, [filter]);
+    return activities;
+  }, [filter, activities]);
 
   const groupedActivities = useMemo(() => {
     const groups: Record<string, ActivityType[]> = {};

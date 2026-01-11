@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
-import { BookCard } from '@/components/books/BookCard';
-import { BookListItem } from '@/components/books/BookListItem';
+import { CatalogBookCard } from '@/components/books/CatalogBookCard';
+import { CatalogBookListItem } from '@/components/books/CatalogBookListItem';
 import { Badge } from '@/components/ui/badge';
 import { mockBooks, categories, publishers } from '@/data/mockBooks';
 import { Book } from '@/types';
@@ -15,7 +15,15 @@ export default function Catalog() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const isAdmin = user?.role === 'admin';
+  const [wishlist, setWishlist] = useState<string[]>([]);
+
+  const handleWishlistToggle = (bookId: string) => {
+    setWishlist(prev => 
+      prev.includes(bookId) 
+        ? prev.filter(id => id !== bookId)
+        : [...prev, bookId]
+    );
+  };
 
   const columns: ColumnDef<Book>[] = useMemo(() => [
     {
@@ -51,7 +59,7 @@ export default function Catalog() {
     },
     {
       id: 'author',
-      header: 'Autor',
+      header: 'Autor (Médium)',
       accessorKey: 'author',
       sortable: true,
       filterable: true,
@@ -119,84 +127,48 @@ export default function Catalog() {
     navigate(`/livro/${book.id}`);
   };
 
-  const handleEdit = (book: Book) => {
-    navigate(`/admin/livros/${book.id}/editar`);
-  };
-
-  const handleCreate = () => {
-    navigate('/admin/livros/novo');
-  };
-
-  const handleExport = () => {
-    // Generate CSV
-    const headers = ['ISBN', 'Título', 'Autor', 'Espírito', 'Editora', 'Categoria', 'Preço', 'Empréstimo', 'Venda'];
-    const rows = mockBooks.map(book => [
-      book.isbn || '',
-      book.title,
-      book.author,
-      book.spiritAuthor || '',
-      book.publisher,
-      book.category || '',
-      book.salePrice?.toString() || '',
-      book.availableForLoan.toString(),
-      book.availableForSale.toString(),
-    ]);
-    
-    const csv = [headers, ...rows].map(row => row.join(';')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'livros.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: 'Exportação concluída',
-      description: `${mockBooks.length} livros exportados para CSV.`,
-    });
-  };
-
-  const handleImport = (file: File) => {
-    toast({
-      title: 'Importação iniciada',
-      description: `Processando arquivo ${file.name}...`,
-    });
-    // TODO: Implement actual import logic
-  };
-
   return (
     <MainLayout>
-      <div className="container py-6">
-        <div className="space-y-6">
+      <div className="container py-4 sm:py-6 px-3 sm:px-4">
+        <div className="space-y-4 sm:space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-3xl font-serif font-bold flex items-center gap-3">
-              <BookOpen className="text-primary" />
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold flex items-center gap-2 sm:gap-3">
+              <BookOpen className="text-primary" size={24} />
               Catálogo de Livros
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Explore nosso acervo espírita
             </p>
           </div>
 
-          {/* Data Table */}
+          {/* Data Table - No create/export/import for catalog, no edit column */}
           <DataTable
             data={mockBooks}
             columns={columns}
             searchPlaceholder="Buscar por título, autor, ISBN..."
             searchableFields={['title', 'author', 'spiritAuthor', 'isbn', 'publisher']}
             onRowClick={handleRowClick}
-            isAdmin={isAdmin}
-            onEdit={isAdmin ? handleEdit : undefined}
-            onCreate={isAdmin ? handleCreate : undefined}
-            onExport={isAdmin ? handleExport : undefined}
-            onImport={isAdmin ? handleImport : undefined}
-            renderCard={(book) => <BookCard book={book} />}
-            renderListItem={(book) => <BookListItem book={book} />}
+            isAdmin={false}
+            renderCard={(book) => (
+              <CatalogBookCard 
+                book={book} 
+                onWishlistToggle={handleWishlistToggle}
+                isInWishlist={wishlist.includes(book.id)}
+              />
+            )}
+            renderListItem={(book) => (
+              <CatalogBookListItem 
+                book={book} 
+                onWishlistToggle={handleWishlistToggle}
+                isInWishlist={wishlist.includes(book.id)}
+              />
+            )}
             emptyMessage="Nenhum livro encontrado"
             emptyIcon={<BookOpen size={48} className="text-muted-foreground/50" />}
             defaultView="cards"
+            showViewToggle={true}
+            showFilters={true}
           />
         </div>
       </div>

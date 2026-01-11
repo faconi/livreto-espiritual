@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Camera, Loader2, Save } from 'lucide-react';
+import { User, Camera, Loader2, Save, Chrome, Facebook, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +25,22 @@ const profileSchema = z.object({
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
+
+// Mock: In real app, this would come from auth provider
+const getAuthProvider = (email: string | undefined) => {
+  if (!email) return null;
+  if (email.includes('gmail') || email.includes('google')) return 'google';
+  if (email.includes('facebook')) return 'facebook';
+  if (email.includes('microsoft') || email.includes('outlook') || email.includes('hotmail')) return 'microsoft';
+  return 'email';
+};
+
+const authProviderConfig = {
+  google: { label: 'Google', icon: Chrome, color: 'text-red-500' },
+  facebook: { label: 'Facebook', icon: Facebook, color: 'text-blue-600' },
+  microsoft: { label: 'Microsoft', icon: Building2, color: 'text-blue-500' },
+  email: { label: 'Email e Senha', icon: User, color: 'text-muted-foreground' },
+};
 
 export default function Profile() {
   const { user, updateProfile } = useAuth();
@@ -80,99 +98,170 @@ export default function Profile() {
     return null;
   }
 
+  const authProvider = getAuthProvider(user.email);
+  const providerConfig = authProvider ? authProviderConfig[authProvider] : null;
+
   return (
     <MainLayout>
-      <div className="container py-8 max-w-2xl">
-        <h1 className="text-3xl font-serif font-bold mb-8 flex items-center gap-3">
-          <User className="text-primary" />
+      <div className="container py-4 sm:py-8 px-3 sm:px-4 max-w-2xl">
+        <h1 className="text-2xl sm:text-3xl font-serif font-bold mb-6 sm:mb-8 flex items-center gap-2 sm:gap-3">
+          <User className="text-primary" size={24} />
           Meu Perfil
         </h1>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações Pessoais</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Avatar section */}
-            <div className="flex items-center gap-4 mb-8">
-              <div className="relative">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={user.avatarUrl} alt={user.fullName} />
-                  <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                    {user.fullName.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
-                >
-                  <Camera size={14} />
-                </Button>
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold">{user.fullName}</h2>
-                <p className="text-muted-foreground">{user.email}</p>
-              </div>
-            </div>
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome Completo *</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="socialName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome Social</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Opcional" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+        <div className="space-y-4 sm:space-y-6">
+          {/* Auth Provider Card */}
+          {providerConfig && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Conta de Acesso
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-full bg-muted flex items-center justify-center ${providerConfig.color}`}>
+                    <providerConfig.icon size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">{providerConfig.label}</p>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    Conectado
+                  </Badge>
                 </div>
+              </CardContent>
+            </Card>
+          )}
 
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email *</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          {/* Profile Form Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base sm:text-lg">Informações Pessoais</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Avatar section */}
+              <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+                <div className="relative">
+                  <Avatar className="h-16 w-16 sm:h-24 sm:w-24">
+                    <AvatarImage src={user.avatarUrl} alt={user.fullName} />
+                    <AvatarFallback className="text-xl sm:text-2xl bg-primary text-primary-foreground">
+                      {user.fullName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="absolute bottom-0 right-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full"
+                  >
+                    <Camera size={12} className="sm:w-[14px] sm:h-[14px]" />
+                  </Button>
+                </div>
+                <div>
+                  <h2 className="text-lg sm:text-xl font-semibold">{user.fullName}</h2>
+                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                </div>
+              </div>
 
-                <div className="grid sm:grid-cols-2 gap-4">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="fullName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome Completo *</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="socialName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome Social</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Opcional" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
                   <FormField
                     control={form.control}
-                    name="phone"
+                    name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Celular *</FormLabel>
+                        <FormLabel>Email *</FormLabel>
                         <FormControl>
-                          <Input 
-                            {...field}
-                            onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                          <Input type="email" {...field} disabled={authProvider !== 'email'} />
+                        </FormControl>
+                        {authProvider !== 'email' && (
+                          <p className="text-xs text-muted-foreground">
+                            Email gerenciado pela sua conta {providerConfig?.label}
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Celular *</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field}
+                              onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="cpf"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>CPF</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Opcional"
+                              {...field}
+                              onChange={(e) => field.onChange(formatCpf(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Endereço</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Opcional - para entregas de livros"
+                            {...field} 
                           />
                         </FormControl>
                         <FormMessage />
@@ -180,59 +269,24 @@ export default function Profile() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="cpf"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CPF</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Opcional"
-                            {...field}
-                            onChange={(e) => field.onChange(formatCpf(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                  <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Salvar Alterações
+                      </>
                     )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Endereço</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Opcional - para entregas de livros"
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Salvar Alterações
-                    </>
-                  )}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </MainLayout>
   );
