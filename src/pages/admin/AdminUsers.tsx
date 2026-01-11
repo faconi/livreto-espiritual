@@ -1,25 +1,35 @@
 import { useState } from 'react';
-import { Users, BookMarked, ShoppingBag, StickyNote, Save } from 'lucide-react';
+import { Users, BookMarked, ShoppingBag, StickyNote, Save, Pencil, MessageSquare, AlertCircle, Send, X } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { User } from '@/types';
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
   DialogTitle,
-  DialogDescription 
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Mock users with more data
 const mockUsers: User[] = [
@@ -63,7 +73,7 @@ const mockUsers: User[] = [
 ];
 
 // Mock user history
-const mockUserHistory: Record<string, { loans: any[], purchases: any[] }> = {
+const mockUserHistory: Record<string, { loans: any[], purchases: any[], pendingActions: any[] }> = {
   '2': {
     loans: [
       { id: 'l1', bookTitle: 'O Livro dos Espíritos', status: 'active', date: '2024-01-15', dueDate: '2024-01-30' },
@@ -71,8 +81,11 @@ const mockUserHistory: Record<string, { loans: any[], purchases: any[] }> = {
       { id: 'l3', bookTitle: 'Paulo e Estêvão', status: 'returned', date: '2023-10-15', returnedAt: '2023-10-28' },
     ],
     purchases: [
-      { id: 'p1', bookTitle: 'O Evangelho Segundo o Espiritismo', quantity: 1, total: 42, date: '2024-01-10' },
-      { id: 'p2', bookTitle: 'Violetas na Janela', quantity: 2, total: 70, date: '2023-11-20' },
+      { id: 'p1', bookTitle: 'O Evangelho Segundo o Espiritismo', quantity: 1, total: 42, date: '2024-01-10', status: 'completed' },
+      { id: 'p2', bookTitle: 'Violetas na Janela', quantity: 2, total: 70, date: '2023-11-20', status: 'completed' },
+    ],
+    pendingActions: [
+      { id: 'pa1', type: 'loan_return', bookTitle: 'O Livro dos Espíritos', requestedAt: '2024-01-25' },
     ],
   },
   '3': {
@@ -80,20 +93,42 @@ const mockUserHistory: Record<string, { loans: any[], purchases: any[] }> = {
       { id: 'l4', bookTitle: 'A Gênese', status: 'active', date: '2024-01-20', dueDate: '2024-02-04' },
     ],
     purchases: [],
+    pendingActions: [],
   },
   '4': {
     loans: [],
     purchases: [
-      { id: 'p3', bookTitle: 'O Livro dos Médiuns', quantity: 1, total: 47, date: '2024-01-05' },
+      { id: 'p3', bookTitle: 'O Livro dos Médiuns', quantity: 1, total: 47, date: '2024-01-05', status: 'pending' },
+    ],
+    pendingActions: [
+      { id: 'pa2', type: 'payment', bookTitle: 'O Livro dos Médiuns', requestedAt: '2024-01-05', amount: 47 },
     ],
   },
 };
 
+// Mock messages
+const mockMessages: Record<string, any[]> = {
+  '2': [
+    { id: 'm1', from: 'admin', content: 'Olá João, seu empréstimo foi renovado conforme solicitado.', date: '2024-01-20T10:00:00' },
+    { id: 'm2', from: 'user', content: 'Obrigado! Vou devolver na próxima semana.', date: '2024-01-20T10:30:00' },
+  ],
+  '3': [],
+  '4': [
+    { id: 'm3', from: 'admin', content: 'Pedro, seu pagamento ainda está pendente. Pode confirmar?', date: '2024-01-22T14:00:00' },
+  ],
+};
+
 export default function AdminUsers() {
   const { toast } = useToast();
+  const [users, setUsers] = useState(mockUsers);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
+  const [editedUser, setEditedUser] = useState<Partial<User>>({});
+  const [newMessage, setNewMessage] = useState('');
+  const [messages, setMessages] = useState(mockMessages);
+  const [activeTab, setActiveTab] = useState('info');
 
   const columns: ColumnDef<User>[] = [
     {
@@ -108,9 +143,7 @@ export default function AdminUsers() {
           className="flex items-center gap-3 cursor-pointer hover:text-primary transition-colors"
           onClick={(e) => {
             e.stopPropagation();
-            setSelectedUser(row);
-            setAdminNotes(row.notes || '');
-            setDetailsOpen(true);
+            handleOpenUser(row);
           }}
         >
           <Avatar className="h-8 w-8">
@@ -176,32 +209,77 @@ export default function AdminUsers() {
     },
   ];
 
-  const handleRowClick = (user: User) => {
+  const handleOpenUser = (user: User) => {
     setSelectedUser(user);
     setAdminNotes(user.notes || '');
+    setEditedUser(user);
+    setEditMode(false);
+    setActiveTab('info');
     setDetailsOpen(true);
   };
 
+  const handleRowClick = (user: User) => {
+    handleOpenUser(user);
+  };
+
   const handleSaveNotes = () => {
-    // In real app, save to backend
+    if (!selectedUser) return;
+    setUsers(prev => prev.map(u => 
+      u.id === selectedUser.id ? { ...u, notes: adminNotes } : u
+    ));
     toast({
       title: 'Notas salvas',
       description: 'As anotações do usuário foram atualizadas.',
     });
   };
 
+  const handleSaveUser = () => {
+    if (!selectedUser) return;
+    setUsers(prev => prev.map(u => 
+      u.id === selectedUser.id ? { ...u, ...editedUser } : u
+    ));
+    setSelectedUser({ ...selectedUser, ...editedUser } as User);
+    setEditMode(false);
+    toast({
+      title: 'Usuário atualizado',
+      description: 'Os dados do usuário foram salvos.',
+    });
+  };
+
+  const handleSendMessage = () => {
+    if (!selectedUser || !newMessage.trim()) return;
+    
+    const newMsg = {
+      id: `m${Date.now()}`,
+      from: 'admin',
+      content: newMessage,
+      date: new Date().toISOString(),
+    };
+    
+    setMessages(prev => ({
+      ...prev,
+      [selectedUser.id]: [...(prev[selectedUser.id] || []), newMsg],
+    }));
+    setNewMessage('');
+    toast({
+      title: 'Mensagem enviada',
+      description: 'A mensagem foi enviada para o usuário.',
+    });
+  };
+
   const userHistory = selectedUser ? mockUserHistory[selectedUser.id] : null;
+  const userMessages = selectedUser ? messages[selectedUser.id] || [] : [];
 
   return (
     <MainLayout showFooter={false}>
-      <div className="container py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <Users className="text-primary" size={28} />
-          <h1 className="text-3xl font-serif font-bold">Gerenciar Usuários</h1>
+      <div className="container py-4 sm:py-8 px-3 sm:px-4">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <Users className="text-primary" size={24} />
+          <h1 className="text-xl sm:text-3xl font-serif font-bold">Gerenciar Usuários</h1>
         </div>
 
         <DataTable
-          data={mockUsers}
+          data={users}
           columns={columns}
           searchPlaceholder="Buscar usuários..."
           searchableFields={['fullName', 'email', 'phone']}
@@ -216,202 +294,404 @@ export default function AdminUsers() {
 
         {/* User Details Dialog */}
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
+                <Avatar className="h-10 w-10 sm:h-12 sm:w-12">
                   <AvatarImage src={selectedUser?.avatarUrl} />
                   <AvatarFallback>{selectedUser?.fullName?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <div>
-                  <span className="text-xl">{selectedUser?.fullName}</span>
-                  <p className="text-sm text-muted-foreground font-normal">
+                <div className="flex-1 min-w-0">
+                  <span className="text-lg sm:text-xl">{selectedUser?.fullName}</span>
+                  <p className="text-sm text-muted-foreground font-normal truncate">
                     {selectedUser?.email}
                   </p>
                 </div>
+                {!editMode && (
+                  <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                    <Pencil size={14} className="mr-1" />
+                    Editar
+                  </Button>
+                )}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="sr-only">
                 Detalhes e histórico do usuário
               </DialogDescription>
             </DialogHeader>
 
-            <ScrollArea className="max-h-[60vh]">
-              <div className="space-y-6 py-4">
-                {/* User Info */}
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Informações Pessoais</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Nome completo:</span>
-                        <span>{selectedUser?.fullName}</span>
-                      </div>
-                      {selectedUser?.socialName && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Nome social:</span>
-                          <span>{selectedUser.socialName}</span>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="info" className="text-xs sm:text-sm">Dados</TabsTrigger>
+                <TabsTrigger value="history" className="text-xs sm:text-sm">Histórico</TabsTrigger>
+                <TabsTrigger value="pending" className="text-xs sm:text-sm">
+                  Pendências
+                  {userHistory?.pendingActions?.length ? (
+                    <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                      {userHistory.pendingActions.length}
+                    </Badge>
+                  ) : null}
+                </TabsTrigger>
+                <TabsTrigger value="messages" className="text-xs sm:text-sm">Mensagens</TabsTrigger>
+              </TabsList>
+
+              <ScrollArea className="flex-1 mt-4">
+                {/* Info Tab */}
+                <TabsContent value="info" className="m-0 space-y-4">
+                  {editMode ? (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">Editar Dados</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Nome Completo</label>
+                            <Input 
+                              value={editedUser.fullName || ''} 
+                              onChange={e => setEditedUser({ ...editedUser, fullName: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Nome Social</label>
+                            <Input 
+                              value={editedUser.socialName || ''} 
+                              onChange={e => setEditedUser({ ...editedUser, socialName: e.target.value })}
+                            />
+                          </div>
                         </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Email:</span>
-                        <span>{selectedUser?.email}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Telefone:</span>
-                        <span>{selectedUser?.phone || '-'}</span>
-                      </div>
-                      {selectedUser?.cpf && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">CPF:</span>
-                          <span>{selectedUser.cpf}</span>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Email</label>
+                            <Input 
+                              value={editedUser.email || ''} 
+                              onChange={e => setEditedUser({ ...editedUser, email: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Telefone</label>
+                            <Input 
+                              value={editedUser.phone || ''} 
+                              onChange={e => setEditedUser({ ...editedUser, phone: e.target.value })}
+                            />
+                          </div>
                         </div>
-                      )}
-                      {selectedUser?.address && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Endereço:</span>
-                          <span className="text-right max-w-[200px]">{selectedUser.address}</span>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">CPF</label>
+                            <Input 
+                              value={editedUser.cpf || ''} 
+                              onChange={e => setEditedUser({ ...editedUser, cpf: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Perfil</label>
+                            <Select 
+                              value={editedUser.role} 
+                              onValueChange={(v) => setEditedUser({ ...editedUser, role: v as 'user' | 'admin' })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="user">Usuário</SelectItem>
+                                <SelectItem value="admin">Administrador</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Resumo</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Perfil:</span>
-                        <Badge variant={selectedUser?.role === 'admin' ? 'default' : 'secondary'}>
-                          {selectedUser?.role === 'admin' ? 'Admin' : 'Usuário'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Cadastrado em:</span>
-                        <span>
-                          {selectedUser?.createdAt && format(new Date(selectedUser.createdAt), 'dd/MM/yyyy', { locale: ptBR })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Empréstimos:</span>
-                        <span>{userHistory?.loans?.length || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Compras:</span>
-                        <span>{userHistory?.purchases?.length || 0}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Separator />
-
-                {/* Admin Notes - CRM */}
-                <Card className="border-yellow-200 bg-yellow-50/50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <StickyNote size={16} className="text-yellow-600" />
-                      Anotações do Administrador (Privado)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      value={adminNotes}
-                      onChange={(e) => setAdminNotes(e.target.value)}
-                      placeholder="Adicione observações sobre este cliente..."
-                      rows={4}
-                      className="bg-white"
-                    />
-                    <Button 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={handleSaveNotes}
-                    >
-                      <Save size={14} className="mr-2" />
-                      Salvar Notas
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Separator />
-
-                {/* Loan History */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <BookMarked size={16} />
-                      Histórico de Empréstimos
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {userHistory?.loans && userHistory.loans.length > 0 ? (
-                      <div className="space-y-3">
-                        {userHistory.loans.map((loan) => (
-                          <div 
-                            key={loan.id}
-                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                          >
-                            <div>
-                              <p className="font-medium">{loan.bookTitle}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Emprestado em {loan.date}
-                                {loan.status === 'active' && ` • Devolução: ${loan.dueDate}`}
-                                {loan.status === 'returned' && ` • Devolvido: ${loan.returnedAt}`}
-                              </p>
+                        <div>
+                          <label className="text-sm font-medium">Endereço</label>
+                          <Textarea 
+                            value={editedUser.address || ''} 
+                            onChange={e => setEditedUser({ ...editedUser, address: e.target.value })}
+                            rows={2}
+                          />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="outline" onClick={() => setEditMode(false)}>
+                            Cancelar
+                          </Button>
+                          <Button onClick={handleSaveUser}>
+                            <Save size={14} className="mr-2" />
+                            Salvar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Informações Pessoais</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Nome completo:</span>
+                            <span>{selectedUser?.fullName}</span>
+                          </div>
+                          {selectedUser?.socialName && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Nome social:</span>
+                              <span>{selectedUser.socialName}</span>
                             </div>
-                            <Badge variant={loan.status === 'active' ? 'default' : 'secondary'}>
-                              {loan.status === 'active' ? 'Ativo' : 'Devolvido'}
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Email:</span>
+                            <span className="truncate max-w-[180px]">{selectedUser?.email}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Telefone:</span>
+                            <span>{selectedUser?.phone || '-'}</span>
+                          </div>
+                          {selectedUser?.cpf && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">CPF:</span>
+                              <span>{selectedUser.cpf}</span>
+                            </div>
+                          )}
+                          {selectedUser?.address && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Endereço:</span>
+                              <span className="text-right max-w-[180px]">{selectedUser.address}</span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Resumo</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Perfil:</span>
+                            <Badge variant={selectedUser?.role === 'admin' ? 'default' : 'secondary'}>
+                              {selectedUser?.role === 'admin' ? 'Admin' : 'Usuário'}
                             </Badge>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-center py-4">
-                        Nenhum empréstimo registrado
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Purchase History */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <ShoppingBag size={16} />
-                      Histórico de Compras
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {userHistory?.purchases && userHistory.purchases.length > 0 ? (
-                      <div className="space-y-3">
-                        {userHistory.purchases.map((purchase) => (
-                          <div 
-                            key={purchase.id}
-                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                          >
-                            <div>
-                              <p className="font-medium">{purchase.bookTitle}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {purchase.quantity}x em {purchase.date}
-                              </p>
-                            </div>
-                            <span className="font-medium text-green-600">
-                              R$ {purchase.total.toFixed(2)}
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Cadastrado em:</span>
+                            <span>
+                              {selectedUser?.createdAt && format(new Date(selectedUser.createdAt), 'dd/MM/yyyy', { locale: ptBR })}
                             </span>
                           </div>
-                        ))}
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Empréstimos:</span>
+                            <span>{userHistory?.loans?.length || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Compras:</span>
+                            <span>{userHistory?.purchases?.length || 0}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* Admin Notes - CRM */}
+                  <Card className="border-yellow-200 bg-yellow-50/50">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <StickyNote size={16} className="text-yellow-600" />
+                        Anotações do Administrador (Privado)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea
+                        value={adminNotes}
+                        onChange={(e) => setAdminNotes(e.target.value)}
+                        placeholder="Adicione observações sobre este cliente..."
+                        rows={3}
+                        className="bg-white"
+                      />
+                      <Button 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={handleSaveNotes}
+                      >
+                        <Save size={14} className="mr-2" />
+                        Salvar Notas
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* History Tab */}
+                <TabsContent value="history" className="m-0 space-y-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <BookMarked size={16} />
+                        Histórico de Empréstimos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {userHistory?.loans && userHistory.loans.length > 0 ? (
+                        <div className="space-y-2">
+                          {userHistory.loans.map((loan) => (
+                            <div 
+                              key={loan.id}
+                              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{loan.bookTitle}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {loan.date}
+                                  {loan.status === 'active' && ` • Devolução: ${loan.dueDate}`}
+                                  {loan.status === 'returned' && ` • Devolvido: ${loan.returnedAt}`}
+                                </p>
+                              </div>
+                              <Badge variant={loan.status === 'active' ? 'default' : 'secondary'}>
+                                {loan.status === 'active' ? 'Ativo' : 'Devolvido'}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-center py-4 text-sm">
+                          Nenhum empréstimo registrado
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <ShoppingBag size={16} />
+                        Histórico de Compras
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {userHistory?.purchases && userHistory.purchases.length > 0 ? (
+                        <div className="space-y-2">
+                          {userHistory.purchases.map((purchase) => (
+                            <div 
+                              key={purchase.id}
+                              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{purchase.bookTitle}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {purchase.quantity}x em {purchase.date}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={purchase.status === 'completed' ? 'default' : 'secondary'}>
+                                  {purchase.status === 'completed' ? 'Pago' : 'Pendente'}
+                                </Badge>
+                                <span className="font-medium text-green-600">
+                                  R$ {purchase.total.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-center py-4 text-sm">
+                          Nenhuma compra registrada
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Pending Actions Tab */}
+                <TabsContent value="pending" className="m-0">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <AlertCircle size={16} className="text-yellow-600" />
+                        Pendências do Usuário
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {userHistory?.pendingActions && userHistory.pendingActions.length > 0 ? (
+                        <div className="space-y-2">
+                          {userHistory.pendingActions.map((action) => (
+                            <div 
+                              key={action.id}
+                              className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg"
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{action.bookTitle}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {action.type === 'loan_return' && 'Devolução pendente'}
+                                  {action.type === 'payment' && `Pagamento pendente: R$ ${action.amount?.toFixed(2)}`}
+                                  {' • '}{action.requestedAt}
+                                </p>
+                              </div>
+                              <Button size="sm" variant="outline">
+                                Gerenciar
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <AlertCircle size={32} className="mx-auto text-green-500 mb-2" />
+                          <p className="text-sm font-medium">Tudo em dia!</p>
+                          <p className="text-xs text-muted-foreground">
+                            Este usuário não tem pendências.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Messages Tab */}
+                <TabsContent value="messages" className="m-0">
+                  <Card className="h-full">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <MessageSquare size={16} />
+                        Mensagens
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <ScrollArea className="h-[200px] border rounded-lg p-3">
+                        {userMessages.length > 0 ? (
+                          <div className="space-y-3">
+                            {userMessages.map((msg) => (
+                              <div 
+                                key={msg.id}
+                                className={`p-2 rounded-lg max-w-[80%] ${
+                                  msg.from === 'admin' 
+                                    ? 'bg-primary/10 ml-auto' 
+                                    : 'bg-muted'
+                                }`}
+                              >
+                                <p className="text-sm">{msg.content}</p>
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                  {format(new Date(msg.date), "dd/MM HH:mm")}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                            Nenhuma mensagem
+                          </div>
+                        )}
+                      </ScrollArea>
+                      
+                      <div className="flex gap-2">
+                        <Input 
+                          placeholder="Digite uma mensagem..."
+                          value={newMessage}
+                          onChange={e => setNewMessage(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                        />
+                        <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
+                          <Send size={16} />
+                        </Button>
                       </div>
-                    ) : (
-                      <p className="text-muted-foreground text-center py-4">
-                        Nenhuma compra registrada
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </ScrollArea>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>

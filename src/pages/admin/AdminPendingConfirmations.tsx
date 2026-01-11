@@ -117,15 +117,6 @@ export default function AdminPendingConfirmations() {
 
   const handleConfirmAction = async () => {
     if (!selectedItem || !actionType) return;
-    
-    if (actionType === 'reject' && !rejectionReason.trim()) {
-      toast({
-        title: 'Justificativa obrigatória',
-        description: 'Por favor, informe o motivo da recusa.',
-        variant: 'destructive',
-      });
-      return;
-    }
 
     setIsSubmitting(true);
 
@@ -315,17 +306,32 @@ export default function AdminPendingConfirmations() {
                 </div>
               )}
 
-              {actionType === 'reject' && (
+            {actionType === 'reject' && (
                 <div>
                   <label className="text-sm font-medium">
-                    Motivo da recusa <span className="text-destructive">*</span>
+                    Motivo da recusa <span className="text-muted-foreground">(opcional)</span>
                   </label>
                   <Textarea
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Informe o motivo da recusa..."
+                    placeholder="Informe o motivo da recusa (opcional)..."
                     className="mt-1"
                     rows={3}
+                  />
+                </div>
+              )}
+
+              {actionType === 'approve' && (
+                <div>
+                  <label className="text-sm font-medium">
+                    Observações <span className="text-muted-foreground">(opcional)</span>
+                  </label>
+                  <Textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Adicione uma observação (opcional)..."
+                    className="mt-1"
+                    rows={2}
                   />
                 </div>
               )}
