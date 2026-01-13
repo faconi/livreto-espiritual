@@ -55,10 +55,12 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
   const [manualCode, setManualCode] = useState('');
   const [scannerActive, setScannerActive] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [readerKey, setReaderKey] = useState(0);
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const manualInputRef = useRef<HTMLInputElement>(null);
   const lastScannedRef = useRef<string>('');
   const scanCooldownRef = useRef<number>(0);
+  const isMountedRef = useRef(true);
 
   const handleScanSuccess = useCallback((decodedText: string) => {
     const now = Date.now();
@@ -150,33 +152,48 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
     if (html5QrcodeRef.current) {
       try {
         await html5QrcodeRef.current.stop();
-        html5QrcodeRef.current = null;
+        await html5QrcodeRef.current.clear();
       } catch (e) {
-        console.error('Error stopping scanner:', e);
+        console.debug('Error stopping scanner:', e);
       }
-      setScannerActive(false);
+      html5QrcodeRef.current = null;
+      if (isMountedRef.current) {
+        setScannerActive(false);
+      }
     }
   }, []);
+
+  // Handle dialog close - stop scanner first
+  const handleOpenChange = useCallback(async (newOpen: boolean) => {
+    if (!newOpen) {
+      await stopScanner();
+      // Reset reader element key to force recreation
+      setReaderKey(prev => prev + 1);
+      setScannedCodes([]);
+      setManualCode('');
+      lastScannedRef.current = '';
+      scanCooldownRef.current = 0;
+    }
+    onOpenChange(newOpen);
+  }, [onOpenChange, stopScanner]);
 
   // Auto-start camera when dialog opens
   useEffect(() => {
     if (open) {
       // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
-        startScanner();
-      }, 300);
+        if (isMountedRef.current) {
+          startScanner();
+        }
+      }, 500);
       return () => clearTimeout(timer);
-    } else {
-      stopScanner();
-      setScannedCodes([]);
-      setManualCode('');
-      lastScannedRef.current = '';
-      scanCooldownRef.current = 0;
     }
-  }, [open, startScanner, stopScanner]);
+  }, [open, startScanner]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       stopScanner();
     };
   }, [stopScanner]);
@@ -246,7 +263,7 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
   const totalItems = scannedCodes.reduce((sum, c) => sum + c.count, 0);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -272,6 +289,7 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
               </div>
             </div>
             <div 
+              key={readerKey}
               id="reader" 
               className={`w-full rounded-lg overflow-hidden bg-muted min-h-[200px] ${!scannerActive && !isStarting ? 'flex items-center justify-center' : ''}`}
             >
