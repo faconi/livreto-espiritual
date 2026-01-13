@@ -9,8 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { AlertTriangle, BookMarked, Calendar, CheckCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { AlertTriangle, BookMarked, Calendar, CheckCircle, Info } from 'lucide-react';
+import { useLoan, MAX_ACTIVE_LOANS, LOAN_DURATION_DAYS, MAX_RENEWALS } from '@/contexts/LoanContext';
+import { Badge } from '@/components/ui/badge';
 
 interface LoanRequestDialogProps {
   book: Book | null;
@@ -25,29 +26,30 @@ export function LoanRequestDialog({
   onOpenChange,
   onConfirm,
 }: LoanRequestDialogProps) {
-  const { toast } = useToast();
+  const { requestLoan, activeLoans, canBorrow, availableStock } = useLoan();
   const [isConfirming, setIsConfirming] = useState(false);
 
   if (!book) return null;
 
-  const handleConfirm = () => {
+  const { allowed, reason } = canBorrow(book.id);
+  const remainingLoans = MAX_ACTIVE_LOANS - activeLoans.length;
+  const stockInfo = availableStock.get(book.id);
+
+  const handleConfirm = async () => {
     setIsConfirming(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    const success = await requestLoan(book);
+    
+    if (success) {
       onConfirm(book);
-      setIsConfirming(false);
       onOpenChange(false);
-      
-      toast({
-        title: 'Empréstimo confirmado!',
-        description: 'Retire o livro na biblioteca. Prazo de devolução: 15 dias.',
-      });
-    }, 500);
+    }
+    
+    setIsConfirming(false);
   };
 
   const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + 15);
+  dueDate.setDate(dueDate.getDate() + LOAN_DURATION_DAYS);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,39 +77,69 @@ export function LoanRequestDialog({
               {book.spiritAuthor && (
                 <p className="text-xs text-primary">Espírito: {book.spiritAuthor}</p>
               )}
+              {stockInfo && (
+                <Badge variant="outline" className="mt-2 text-xs">
+                  {stockInfo.forLoan} disponível(is)
+                </Badge>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-sm bg-primary/10 text-primary p-3 rounded-lg">
-            <Calendar size={16} />
+          {/* Loan status info */}
+          <div className="flex items-center gap-2 text-sm bg-muted/50 p-3 rounded-lg">
+            <Info size={16} className="text-muted-foreground" />
             <span>
-              Data de devolução: <strong>{dueDate.toLocaleDateString('pt-BR')}</strong>
+              Você possui <strong>{activeLoans.length}</strong> de <strong>{MAX_ACTIVE_LOANS}</strong> empréstimos ativos
+              {remainingLoans > 0 && (
+                <span className="text-muted-foreground"> ({remainingLoans} disponível)</span>
+              )}
             </span>
           </div>
 
-          <div className="space-y-2 text-sm">
-            <div className="flex items-start gap-2 text-muted-foreground">
-              <AlertTriangle size={16} className="mt-0.5 text-amber-500 flex-shrink-0" />
-              <p>
-                <strong>Responsabilidade do leitor:</strong> Você é responsável por retirar o livro 
-                na biblioteca e devolvê-lo em bom estado dentro do prazo de <strong>15 dias</strong>.
-              </p>
+          {!allowed && (
+            <div className="flex items-center gap-2 text-sm bg-destructive/10 text-destructive p-3 rounded-lg">
+              <AlertTriangle size={16} />
+              <span>{reason}</span>
             </div>
-            <div className="flex items-start gap-2 text-muted-foreground">
-              <CheckCircle size={16} className="mt-0.5 text-green-500 flex-shrink-0" />
-              <p>
-                Você pode renovar o empréstimo uma vez, mediante justificativa, 
-                sujeito à aprovação do administrador.
-              </p>
-            </div>
-          </div>
+          )}
+
+          {allowed && (
+            <>
+              <div className="flex items-center gap-2 text-sm bg-primary/10 text-primary p-3 rounded-lg">
+                <Calendar size={16} />
+                <span>
+                  Data de devolução: <strong>{dueDate.toLocaleDateString('pt-BR')}</strong>
+                </span>
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2 text-muted-foreground">
+                  <AlertTriangle size={16} className="mt-0.5 text-amber-500 flex-shrink-0" />
+                  <p>
+                    <strong>Responsabilidade do leitor:</strong> Você é responsável por retirar o livro 
+                    na biblioteca e devolvê-lo em bom estado dentro do prazo de <strong>{LOAN_DURATION_DAYS} dias</strong>.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2 text-muted-foreground">
+                  <CheckCircle size={16} className="mt-0.5 text-green-500 flex-shrink-0" />
+                  <p>
+                    Você pode renovar o empréstimo até {MAX_RENEWALS}x, mediante justificativa, 
+                    sujeito à aprovação do administrador.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={isConfirming}>
+          <Button 
+            onClick={handleConfirm} 
+            disabled={isConfirming || !allowed}
+          >
             {isConfirming ? 'Confirmando...' : 'Confirmar Empréstimo'}
           </Button>
         </DialogFooter>

@@ -10,13 +10,15 @@ import {
   ShoppingBag,
   History,
   Heart,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoan, MAX_ACTIVE_LOANS } from '@/contexts/LoanContext';
 import { Loan, Sale, Book, WishlistItem } from '@/types';
 import { mockBooks } from '@/data/mockBooks';
 import { LoanReturnDialog } from '@/components/loans/LoanReturnDialog';
@@ -129,10 +131,12 @@ interface LoanWithBook extends Loan {
 export default function MyBooks() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [loans, setLoans] = useState(mockLoans);
+  const { loans, activeLoans: contextActiveLoans, requestReturn, requestRenewal } = useLoan();
   const [wishlist, setWishlist] = useState<string[]>(mockWishlist);
   const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<LoanWithBook | null>(null);
   const [selectedLoanForRenewal, setSelectedLoanForRenewal] = useState<LoanWithBook | null>(null);
+
+  const remainingLoans = MAX_ACTIVE_LOANS - contextActiveLoans.length;
 
   const getBookDetails = (bookId: string) => {
     return mockBooks.find(b => b.id === bookId);
@@ -184,23 +188,11 @@ export default function MyBooks() {
   }, [loans, wishlist, loansWithBooks]);
 
   const handleReturnConfirm = (loanId: string, justification?: string) => {
-    setLoans(prev =>
-      prev.map(l =>
-        l.id === loanId 
-          ? { ...l, status: 'pending_return' as const, returnJustification: justification } 
-          : l
-      )
-    );
+    requestReturn(loanId, justification);
   };
 
   const handleRenewalConfirm = (loanId: string, justification: string) => {
-    setLoans(prev =>
-      prev.map(l =>
-        l.id === loanId 
-          ? { ...l, status: 'pending_renewal' as const, renewalJustification: justification } 
-          : l
-      )
-    );
+    requestRenewal(loanId, justification);
   };
 
   const handleWishlistToggle = (bookId: string) => {
