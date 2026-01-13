@@ -313,18 +313,23 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
                 <span className="text-xs text-muted-foreground">Som ativado</span>
               </div>
             </div>
-            <div 
-              ref={readerContainerRef}
-              className={`w-full rounded-lg overflow-hidden bg-muted min-h-[200px] ${!scannerActive && !isStarting ? 'flex items-center justify-center' : ''}`}
+            <div
+              className="relative w-full rounded-lg overflow-hidden bg-muted min-h-[200px]"
             >
+              {/* IMPORTANT: this element is managed by Html5Qrcode via direct DOM ops */}
+              <div ref={readerContainerRef} className="w-full" />
+
               {!scannerActive && !isStarting && (
-                <Button onClick={startScanner} variant="outline">
-                  <Camera size={16} className="mr-2" />
-                  Iniciar Câmera
-                </Button>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Button onClick={startScanner} variant="outline">
+                    <Camera size={16} className="mr-2" />
+                    Iniciar Câmera
+                  </Button>
+                </div>
               )}
+
               {isStarting && (
-                <div className="flex items-center justify-center h-full text-muted-foreground py-8">
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
                   Iniciando câmera...
                 </div>
               )}
