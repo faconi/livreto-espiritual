@@ -1,14 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, Trash2, Plus, Save, X, Keyboard, Volume2 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -36,10 +28,10 @@ const playBeep = () => {
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
     
-    oscillator.frequency.value = 800; // Frequency in Hz
+    oscillator.frequency.value = 800;
     oscillator.type = 'sine';
     
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Low volume
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
     
     oscillator.start(audioContext.currentTime);
@@ -55,30 +47,25 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
   const [manualCode, setManualCode] = useState('');
   const [scannerActive, setScannerActive] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const [readerKey, setReaderKey] = useState(0);
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
+  const readerContainerRef = useRef<HTMLDivElement>(null);
   const manualInputRef = useRef<HTMLInputElement>(null);
   const lastScannedRef = useRef<string>('');
   const scanCooldownRef = useRef<number>(0);
-  const isMountedRef = useRef(true);
 
   const handleScanSuccess = useCallback((decodedText: string) => {
     const now = Date.now();
     
-    // 3 second cooldown to allow user to change books
     if (now - scanCooldownRef.current < 3000) {
       return;
     }
     
     scanCooldownRef.current = now;
-    
-    // Play beep sound
     playBeep();
 
     setScannedCodes(prev => {
       const existing = prev.find(c => c.code === decodedText);
       if (existing) {
-        // Increment counter for duplicates
         if (decodedText !== lastScannedRef.current) {
           toast({
             title: 'Código repetido',
@@ -100,20 +87,47 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
     });
   }, [toast]);
 
+  const stopScanner = useCallback(async () => {
+    if (html5QrcodeRef.current) {
+      try {
+        const scanner = html5QrcodeRef.current;
+        html5QrcodeRef.current = null;
+        
+        if (scanner.isScanning) {
+          await scanner.stop();
+        }
+        scanner.clear();
+      } catch (e) {
+        console.debug('Error stopping scanner:', e);
+      }
+      setScannerActive(false);
+    }
+  }, []);
+
   const startScanner = useCallback(async () => {
-    if (html5QrcodeRef.current || isStarting) return;
+    if (html5QrcodeRef.current || isStarting || !readerContainerRef.current) return;
     
     setIsStarting(true);
     
     try {
-      const html5Qrcode = new Html5Qrcode('reader');
+      // Create a unique ID for the reader element
+      const readerId = `reader-${Date.now()}`;
+      
+      // Clear any existing content and create fresh element
+      if (readerContainerRef.current) {
+        readerContainerRef.current.innerHTML = '';
+        const readerDiv = document.createElement('div');
+        readerDiv.id = readerId;
+        readerDiv.style.width = '100%';
+        readerContainerRef.current.appendChild(readerDiv);
+      }
+      
+      const html5Qrcode = new Html5Qrcode(readerId);
       html5QrcodeRef.current = html5Qrcode;
       
-      // Get cameras and prefer back camera on mobile
       const devices = await Html5Qrcode.getCameras();
       let cameraId = devices[0]?.id;
       
-      // Try to find back camera
       const backCamera = devices.find(d => 
         d.label.toLowerCase().includes('back') || 
         d.label.toLowerCase().includes('traseira') ||
@@ -131,7 +145,7 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
           aspectRatio: 1.0,
         },
         handleScanSuccess,
-        () => {} // Ignore errors
+        () => {}
       );
       
       setScannerActive(true);
@@ -148,55 +162,47 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
     }
   }, [handleScanSuccess, toast, isStarting]);
 
-  const stopScanner = useCallback(async () => {
-    if (html5QrcodeRef.current) {
-      try {
-        await html5QrcodeRef.current.stop();
-        await html5QrcodeRef.current.clear();
-      } catch (e) {
-        console.debug('Error stopping scanner:', e);
-      }
-      html5QrcodeRef.current = null;
-      if (isMountedRef.current) {
-        setScannerActive(false);
-      }
+  const handleClose = useCallback(async () => {
+    await stopScanner();
+    // Clear the container manually
+    if (readerContainerRef.current) {
+      readerContainerRef.current.innerHTML = '';
     }
-  }, []);
-
-  // Handle dialog close - stop scanner first
-  const handleOpenChange = useCallback(async (newOpen: boolean) => {
-    if (!newOpen) {
-      await stopScanner();
-      // Reset reader element key to force recreation
-      setReaderKey(prev => prev + 1);
-      setScannedCodes([]);
-      setManualCode('');
-      lastScannedRef.current = '';
-      scanCooldownRef.current = 0;
-    }
-    onOpenChange(newOpen);
+    setScannedCodes([]);
+    setManualCode('');
+    lastScannedRef.current = '';
+    scanCooldownRef.current = 0;
+    onOpenChange(false);
   }, [onOpenChange, stopScanner]);
 
   // Auto-start camera when dialog opens
   useEffect(() => {
     if (open) {
-      // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
-        if (isMountedRef.current) {
-          startScanner();
-        }
-      }, 500);
+        startScanner();
+      }, 300);
       return () => clearTimeout(timer);
-    }
-  }, [open, startScanner]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
+    } else {
       stopScanner();
+    }
+  }, [open, startScanner, stopScanner]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (html5QrcodeRef.current) {
+        try {
+          if (html5QrcodeRef.current.isScanning) {
+            html5QrcodeRef.current.stop().catch(() => {});
+          }
+          html5QrcodeRef.current.clear();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        html5QrcodeRef.current = null;
+      }
     };
-  }, [stopScanner]);
+  }, []);
 
   const addManualCode = () => {
     const code = manualCode.trim();
@@ -234,7 +240,7 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
     setScannedCodes([]);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (scannedCodes.length === 0) {
       toast({
         title: 'Nenhum código',
@@ -244,16 +250,19 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
       return;
     }
 
-    // Expand codes based on count
     const expandedCodes = scannedCodes.flatMap(c => 
       Array(c.count).fill(c.code)
     );
+    
+    await stopScanner();
+    if (readerContainerRef.current) {
+      readerContainerRef.current.innerHTML = '';
+    }
     
     onSaveDrafts(expandedCodes);
     onOpenChange(false);
   };
 
-  // Handle USB barcode scanner (keyboard input)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       addManualCode();
@@ -262,21 +271,37 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
 
   const totalItems = scannedCodes.reduce((sum, c) => sum + c.count, 0);
 
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Camera size={20} />
-            Scanner de Códigos de Barras
-          </DialogTitle>
-          <DialogDescription>
-            A câmera iniciará automaticamente. Posicione o código de barras na área de leitura.
-          </DialogDescription>
-        </DialogHeader>
+  if (!open) return null;
 
-        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-          {/* Camera Scanner - starts automatically */}
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/80" 
+        onClick={handleClose}
+      />
+      
+      {/* Modal Content */}
+      <div className="relative z-50 w-full max-w-lg max-h-[90vh] mx-4 bg-background rounded-lg shadow-lg overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="p-6 pb-0">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Camera size={20} />
+              Scanner de Códigos de Barras
+            </h2>
+            <Button variant="ghost" size="icon" onClick={handleClose}>
+              <X size={20} />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            A câmera iniciará automaticamente. Posicione o código de barras na área de leitura.
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-4 flex-1 overflow-hidden flex flex-col">
+          {/* Camera Scanner */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium flex items-center gap-2">
@@ -289,8 +314,7 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
               </div>
             </div>
             <div 
-              key={readerKey}
-              id="reader" 
+              ref={readerContainerRef}
               className={`w-full rounded-lg overflow-hidden bg-muted min-h-[200px] ${!scannerActive && !isStarting ? 'flex items-center justify-center' : ''}`}
             >
               {!scannerActive && !isStarting && (
@@ -300,7 +324,7 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
                 </Button>
               )}
               {isStarting && (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="flex items-center justify-center h-full text-muted-foreground py-8">
                   Iniciando câmera...
                 </div>
               )}
@@ -383,16 +407,17 @@ export function BarcodeScanner({ open, onOpenChange, onSaveDrafts }: BarcodeScan
           </div>
         </div>
 
-        <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        {/* Footer */}
+        <div className="p-6 pt-0 flex justify-end gap-2">
+          <Button variant="outline" onClick={handleClose}>
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={scannedCodes.length === 0}>
             <Save size={16} className="mr-2" />
             Salvar Rascunhos ({totalItems})
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }
