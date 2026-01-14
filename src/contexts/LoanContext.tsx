@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { Book, Loan, Activity as ActivityType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useActivity } from '@/contexts/ActivityContext';
@@ -7,6 +7,9 @@ import { useActivity } from '@/contexts/ActivityContext';
 const MAX_ACTIVE_LOANS = 3;
 const LOAN_DURATION_DAYS = 15;
 const MAX_RENEWALS = 2;
+
+const STORAGE_KEY_LOANS = 'biblioluz_loans';
+const STORAGE_KEY_STOCK = 'biblioluz_stock';
 
 interface LoanContextType {
   loans: Loan[];
@@ -23,7 +26,7 @@ interface LoanContextType {
 const LoanContext = createContext<LoanContextType | undefined>(undefined);
 
 // Mock initial loans (simulating data for user id '2')
-const initialLoans: Loan[] = [
+const defaultLoans: Loan[] = [
   {
     id: '1',
     bookId: '1',
@@ -45,7 +48,7 @@ const initialLoans: Loan[] = [
 ];
 
 // Initial stock based on mockBooks
-const initialStock = new Map<string, { forLoan: number; forSale: number }>([
+const defaultStock: [string, { forLoan: number; forSale: number }][] = [
   ['1', { forLoan: 3, forSale: 8 }],
   ['2', { forLoan: 6, forSale: 12 }],
   ['3', { forLoan: 2, forSale: 6 }],
@@ -54,13 +57,67 @@ const initialStock = new Map<string, { forLoan: number; forSale: number }>([
   ['6', { forLoan: 4, forSale: 5 }],
   ['7', { forLoan: 2, forSale: 4 }],
   ['8', { forLoan: 4, forSale: 7 }],
-]);
+];
+
+// Helpers for localStorage with dates
+function loadLoans(): Loan[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_LOANS);
+    if (!stored) return defaultLoans;
+    
+    const parsed = JSON.parse(stored);
+    return parsed.map((loan: Record<string, unknown>) => ({
+      ...loan,
+      borrowedAt: new Date(loan.borrowedAt as string),
+      dueDate: new Date(loan.dueDate as string),
+      returnedAt: loan.returnedAt ? new Date(loan.returnedAt as string) : undefined,
+    }));
+  } catch {
+    return defaultLoans;
+  }
+}
+
+function saveLoans(loans: Loan[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY_LOANS, JSON.stringify(loans));
+  } catch (error) {
+    console.warn('Error saving loans to localStorage:', error);
+  }
+}
+
+function loadStock(): Map<string, { forLoan: number; forSale: number }> {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_STOCK);
+    if (!stored) return new Map(defaultStock);
+    return new Map(JSON.parse(stored));
+  } catch {
+    return new Map(defaultStock);
+  }
+}
+
+function saveStock(stock: Map<string, { forLoan: number; forSale: number }>) {
+  try {
+    localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify([...stock.entries()]));
+  } catch (error) {
+    console.warn('Error saving stock to localStorage:', error);
+  }
+}
 
 export function LoanProvider({ children }: { children: ReactNode }) {
-  const [loans, setLoans] = useState<Loan[]>(initialLoans);
-  const [stock, setStock] = useState<Map<string, { forLoan: number; forSale: number }>>(initialStock);
+  const [loans, setLoans] = useState<Loan[]>(() => loadLoans());
+  const [stock, setStock] = useState<Map<string, { forLoan: number; forSale: number }>>(() => loadStock());
   const { toast } = useToast();
   const { addActivity } = useActivity();
+
+  // Persist loans when they change
+  useEffect(() => {
+    saveLoans(loans);
+  }, [loans]);
+
+  // Persist stock when it changes
+  useEffect(() => {
+    saveStock(stock);
+  }, [stock]);
 
   // Get only active loans (not returned)
   const activeLoans = useMemo(() => {

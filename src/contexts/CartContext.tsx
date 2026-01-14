@@ -1,6 +1,15 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { Book, CartItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { mockBooks } from '@/data/mockBooks';
+
+const STORAGE_KEY = 'biblioluz_cart';
+
+interface StoredCartItem {
+  bookId: string;
+  quantity: number;
+  type: 'loan' | 'purchase';
+}
 
 interface CartContextType {
   items: CartItem[];
@@ -14,11 +23,53 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+function loadCart(): StoredCartItem[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+}
+
+function saveCart(items: CartItem[]) {
+  try {
+    const toStore: StoredCartItem[] = items.map(item => ({
+      bookId: item.book.id,
+      quantity: item.quantity,
+      type: item.type,
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+  } catch (error) {
+    console.warn('Error saving cart to localStorage:', error);
+  }
+}
+
+function hydrateCart(storedItems: StoredCartItem[]): CartItem[] {
+  return storedItems
+    .map(stored => {
+      const book = mockBooks.find(b => b.id === stored.bookId);
+      if (!book) return null;
+      return {
+        book,
+        quantity: stored.quantity,
+        type: stored.type,
+      };
+    })
+    .filter((item): item is CartItem => item !== null);
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => hydrateCart(loadCart()));
   const { toast } = useToast();
 
-  const addToCart = (book: Book, type: 'loan' | 'purchase') => {
+  // Persist cart when it changes
+  useEffect(() => {
+    saveCart(items);
+  }, [items]);
+
+  const addToCart = useCallback((book: Book, type: 'loan' | 'purchase') => {
     setItems(prev => {
       const existing = prev.find(item => item.book.id === book.id && item.type === type);
       
@@ -37,13 +88,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       
       return [...prev, { book, quantity: 1, type }];
     });
-  };
+  }, [toast]);
 
-  const removeFromCart = (bookId: string) => {
+  const removeFromCart = useCallback((bookId: string) => {
     setItems(prev => prev.filter(item => item.book.id !== bookId));
-  };
+  }, []);
 
-  const updateQuantity = (bookId: string, quantity: number) => {
+  const updateQuantity = useCallback((bookId: string, quantity: number) => {
     if (quantity < 1) {
       removeFromCart(bookId);
       return;
@@ -69,11 +120,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return item;
       })
     );
-  };
+  }, [removeFromCart, toast]);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([]);
-  };
+  }, []);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   

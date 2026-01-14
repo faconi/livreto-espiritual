@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 interface WishlistContextType {
   wishlist: string[];
@@ -11,16 +12,16 @@ interface WishlistContextType {
 
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
-// Initial mock data
+const STORAGE_KEY = 'biblioluz_wishlist';
 const initialWishlist = ['4', '6', '8'];
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
-  const [wishlist, setWishlist] = useState<string[]>(initialWishlist);
+  const [wishlist, setWishlist] = useLocalStorage<string[]>(STORAGE_KEY, initialWishlist);
   const { toast } = useToast();
 
-  const isInWishlist = (bookId: string) => wishlist.includes(bookId);
+  const isInWishlist = useCallback((bookId: string) => wishlist.includes(bookId), [wishlist]);
 
-  const toggleWishlist = (bookId: string, bookTitle?: string) => {
+  const toggleWishlist = useCallback((bookId: string, bookTitle?: string) => {
     const wasInWishlist = wishlist.includes(bookId);
     
     setWishlist(prev => 
@@ -39,9 +40,9 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
             ? 'Livro removido da sua lista de desejos.'
             : 'Livro adicionado à sua lista de desejos.'),
     });
-  };
+  }, [wishlist, setWishlist, toast]);
 
-  const addToWishlist = (bookId: string, bookTitle?: string) => {
+  const addToWishlist = useCallback((bookId: string, bookTitle?: string) => {
     if (!wishlist.includes(bookId)) {
       setWishlist(prev => [...prev, bookId]);
       toast({
@@ -51,9 +52,9 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
           : 'Livro adicionado à sua lista de desejos.',
       });
     }
-  };
+  }, [wishlist, setWishlist, toast]);
 
-  const removeFromWishlist = (bookId: string, bookTitle?: string) => {
+  const removeFromWishlist = useCallback((bookId: string, bookTitle?: string) => {
     if (wishlist.includes(bookId)) {
       setWishlist(prev => prev.filter(id => id !== bookId));
       toast({
@@ -63,7 +64,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
           : 'Livro removido da sua lista de desejos.',
       });
     }
-  };
+  }, [wishlist, setWishlist, toast]);
 
   return (
     <WishlistContext.Provider value={{ 
