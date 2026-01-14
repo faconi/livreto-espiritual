@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ShoppingCart, BookMarked, Heart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { LoanRequestDialog } from '@/components/loans/LoanRequestDialog';
 import { PurchaseConfirmDialog } from '@/components/books/PurchaseConfirmDialog';
@@ -12,14 +13,13 @@ import { useToast } from '@/hooks/use-toast';
 
 interface CatalogBookListItemProps {
   book: Book;
-  onWishlistToggle?: (bookId: string) => void;
-  isInWishlist?: boolean;
 }
 
-export function CatalogBookListItem({ book, onWishlistToggle, isInWishlist }: CatalogBookListItemProps) {
+export function CatalogBookListItem({ book }: CatalogBookListItemProps) {
   const { addToCart } = useCart();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const navigate = useNavigate();
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
@@ -31,6 +31,7 @@ export function CatalogBookListItem({ book, onWishlistToggle, isInWishlist }: Ca
 
   const canLoan = book.availableForLoan > 0;
   const canBuy = book.availableForSale > 0 && book.salePrice;
+  const inWishlist = isInWishlist(book.id);
 
   const handleLoanConfirm = (confirmedBook: Book) => {
     navigate('/meus-livros');
@@ -48,15 +49,7 @@ export function CatalogBookListItem({ book, onWishlistToggle, isInWishlist }: Ca
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (onWishlistToggle) {
-      onWishlistToggle(book.id);
-    }
-    toast({
-      title: isInWishlist ? 'Removido da lista de desejos' : 'Adicionado à lista de desejos',
-      description: isInWishlist 
-        ? `"${book.title}" foi removido da sua lista.`
-        : `"${book.title}" foi adicionado à sua lista.`,
-    });
+    toggleWishlist(book.id, book.title);
   };
 
   return (
@@ -88,13 +81,18 @@ export function CatalogBookListItem({ book, onWishlistToggle, isInWishlist }: Ca
               {user && (
                 <Button
                   size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  variant={inWishlist ? "default" : "ghost"}
+                  className={`h-7 w-7 sm:h-8 sm:w-8 ${
+                    inWishlist 
+                      ? 'bg-red-500 hover:bg-red-600 text-white' 
+                      : ''
+                  }`}
                   onClick={handleWishlistToggle}
+                  title={inWishlist ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                 >
                   <Heart 
                     size={14} 
-                    className={isInWishlist ? 'fill-red-500 text-red-500' : ''} 
+                    className={inWishlist ? 'fill-current' : ''} 
                   />
                 </Button>
               )}

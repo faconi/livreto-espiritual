@@ -19,6 +19,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoan, MAX_ACTIVE_LOANS } from '@/contexts/LoanContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { Loan, Sale, Book, WishlistItem } from '@/types';
 import { mockBooks } from '@/data/mockBooks';
 import { LoanReturnDialog } from '@/components/loans/LoanReturnDialog';
@@ -86,7 +87,7 @@ const mockPurchases: (Sale & { bookTitle: string })[] = [
   },
 ];
 
-const mockWishlist: string[] = ['4', '6', '8'];
+// Removed: mockWishlist - now using WishlistContext
 
 const statusConfig = {
   active: {
@@ -132,7 +133,7 @@ export default function MyBooks() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { loans, activeLoans: contextActiveLoans, requestReturn, requestRenewal } = useLoan();
-  const [wishlist, setWishlist] = useState<string[]>(mockWishlist);
+  const { wishlist, isInWishlist } = useWishlist();
   const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<LoanWithBook | null>(null);
   const [selectedLoanForRenewal, setSelectedLoanForRenewal] = useState<LoanWithBook | null>(null);
 
@@ -162,8 +163,8 @@ export default function MyBooks() {
   const loanHistory = loansWithBooks.filter(l => l.status === 'returned');
 
   const wishlistBooks = useMemo(() => {
-    return mockBooks.filter(book => wishlist.includes(book.id));
-  }, [wishlist]);
+    return mockBooks.filter(book => isInWishlist(book.id));
+  }, [wishlist, isInWishlist]);
 
   // Get suggested books based on categories and authors from history
   const suggestedBooks = useMemo(() => {
@@ -181,11 +182,11 @@ export default function MyBooks() {
     return mockBooks
       .filter(book => 
         !loans.some(l => l.bookId === book.id) && // Not already borrowed
-        !wishlist.includes(book.id) && // Not in wishlist
+        !isInWishlist(book.id) && // Not in wishlist
         (borrowedCategories.has(book.category) || borrowedAuthors.has(book.spiritAuthor))
       )
       .slice(0, 4);
-  }, [loans, wishlist, loansWithBooks]);
+  }, [loans, isInWishlist, loansWithBooks]);
 
   const handleReturnConfirm = (loanId: string, justification?: string) => {
     requestReturn(loanId, justification);
@@ -195,13 +196,7 @@ export default function MyBooks() {
     requestRenewal(loanId, justification);
   };
 
-  const handleWishlistToggle = (bookId: string) => {
-    setWishlist(prev => 
-      prev.includes(bookId) 
-        ? prev.filter(id => id !== bookId)
-        : [...prev, bookId]
-    );
-  };
+  // Wishlist is now handled by WishlistContext
 
   const renderLoanCard = (loan: LoanWithBook) => {
     const config = statusConfig[loan.status];
@@ -439,9 +434,7 @@ export default function MyBooks() {
                   {wishlistBooks.map(book => (
                     <BookCard 
                       key={book.id} 
-                      book={book} 
-                      isInWishlist={true}
-                      onWishlistToggle={handleWishlistToggle}
+                      book={book}
                     />
                   ))}
                 </div>
@@ -477,8 +470,6 @@ export default function MyBooks() {
                         <BookCard 
                           key={book.id} 
                           book={book}
-                          isInWishlist={wishlist.includes(book.id)}
-                          onWishlistToggle={handleWishlistToggle}
                         />
                       ))}
                     </div>

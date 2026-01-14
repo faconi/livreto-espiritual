@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -9,21 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { mockBooks, categories, publishers } from '@/data/mockBooks';
 import { Book } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 export default function Catalog() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [wishlist, setWishlist] = useState<string[]>([]);
-
-  const handleWishlistToggle = (bookId: string) => {
-    setWishlist(prev => 
-      prev.includes(bookId) 
-        ? prev.filter(id => id !== bookId)
-        : [...prev, bookId]
-    );
-  };
 
   const columns: ColumnDef<Book>[] = useMemo(() => [
     {
@@ -151,18 +140,10 @@ export default function Catalog() {
             onRowClick={handleRowClick}
             isAdmin={false}
             renderCard={(book) => (
-              <CatalogBookCard 
-                book={book} 
-                onWishlistToggle={handleWishlistToggle}
-                isInWishlist={wishlist.includes(book.id)}
-              />
+              <CatalogBookCard book={book} />
             )}
             renderListItem={(book) => (
-              <CatalogBookListItem 
-                book={book} 
-                onWishlistToggle={handleWishlistToggle}
-                isInWishlist={wishlist.includes(book.id)}
-              />
+              <CatalogBookListItem book={book} />
             )}
             emptyMessage="Nenhum livro encontrado"
             emptyIcon={<BookOpen size={48} className="text-muted-foreground/50" />}

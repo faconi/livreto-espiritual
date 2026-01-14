@@ -7,20 +7,20 @@ import { Button } from '@/components/ui/button';
 import { ShoppingCart, BookMarked, Heart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { LoanRequestDialog } from '@/components/loans/LoanRequestDialog';
 import { PurchaseConfirmDialog } from '@/components/books/PurchaseConfirmDialog';
 import { useToast } from '@/hooks/use-toast';
 
 interface CatalogBookCardProps {
   book: Book;
-  onWishlistToggle?: (bookId: string) => void;
-  isInWishlist?: boolean;
 }
 
-export function CatalogBookCard({ book, onWishlistToggle, isInWishlist }: CatalogBookCardProps) {
+export function CatalogBookCard({ book }: CatalogBookCardProps) {
   const { addToCart } = useCart();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const navigate = useNavigate();
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
@@ -32,6 +32,7 @@ export function CatalogBookCard({ book, onWishlistToggle, isInWishlist }: Catalo
 
   const canLoan = book.availableForLoan > 0;
   const canBuy = book.availableForSale > 0 && book.salePrice;
+  const inWishlist = isInWishlist(book.id);
 
   const handleLoanConfirm = (confirmedBook: Book) => {
     navigate('/meus-livros');
@@ -49,15 +50,7 @@ export function CatalogBookCard({ book, onWishlistToggle, isInWishlist }: Catalo
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (onWishlistToggle) {
-      onWishlistToggle(book.id);
-    }
-    toast({
-      title: isInWishlist ? 'Removido da lista de desejos' : 'Adicionado à lista de desejos',
-      description: isInWishlist 
-        ? `"${book.title}" foi removido da sua lista.`
-        : `"${book.title}" foi adicionado à sua lista.`,
-    });
+    toggleWishlist(book.id, book.title);
   };
 
   return (
@@ -72,17 +65,22 @@ export function CatalogBookCard({ book, onWishlistToggle, isInWishlist }: Catalo
             />
           </Link>
           
-          {/* Wishlist button */}
+          {/* Wishlist button - always visible for logged in users */}
           {user && (
             <Button
               size="icon"
-              variant="secondary"
-              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              variant={inWishlist ? "default" : "secondary"}
+              className={`absolute top-2 right-2 h-8 w-8 transition-all ${
+                inWishlist 
+                  ? 'bg-red-500 hover:bg-red-600 text-white' 
+                  : 'opacity-70 hover:opacity-100'
+              }`}
               onClick={handleWishlistToggle}
+              title={inWishlist ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             >
               <Heart 
                 size={16} 
-                className={isInWishlist ? 'fill-red-500 text-red-500' : ''} 
+                className={inWishlist ? 'fill-current' : ''} 
               />
             </Button>
           )}

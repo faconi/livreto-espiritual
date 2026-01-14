@@ -6,22 +6,20 @@ import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, BookMarked, Eye, Heart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { LoanRequestDialog } from '@/components/loans/LoanRequestDialog';
-import { useToast } from '@/hooks/use-toast';
 
 interface BookCardProps {
   book: Book;
   className?: string;
-  onWishlistToggle?: (bookId: string) => void;
-  isInWishlist?: boolean;
 }
 
-export function BookCard({ book, className, onWishlistToggle, isInWishlist }: BookCardProps) {
+export function BookCard({ book, className }: BookCardProps) {
   const { addToCart } = useCart();
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const navigate = useNavigate();
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
 
@@ -33,6 +31,7 @@ export function BookCard({ book, className, onWishlistToggle, isInWishlist }: Bo
   // Check loan availability (max 3 active loans per user, 1 per book)
   const canLoan = book.availableForLoan > 0;
   const canBuy = book.availableForSale > 0 && book.salePrice;
+  const inWishlist = isInWishlist(book.id);
 
   const handleLoanConfirm = (confirmedBook: Book) => {
     // In real app, this would create a loan record and redirect to My Books
@@ -42,16 +41,7 @@ export function BookCard({ book, className, onWishlistToggle, isInWishlist }: Bo
 
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onWishlistToggle) {
-      onWishlistToggle(book.id);
-    } else {
-      toast({
-        title: isInWishlist ? 'Removido da lista de desejos' : 'Adicionado à lista de desejos',
-        description: isInWishlist 
-          ? `"${book.title}" foi removido da sua lista.`
-          : `"${book.title}" foi adicionado à sua lista.`,
-      });
-    }
+    toggleWishlist(book.id, book.title);
   };
 
   return (
@@ -81,17 +71,22 @@ export function BookCard({ book, className, onWishlistToggle, isInWishlist }: Bo
             )}
           </div>
 
-          {/* Wishlist button */}
+          {/* Wishlist button - always visible for logged in users */}
           {user && (
             <Button
               size="icon"
-              variant="ghost"
-              className="absolute top-2 right-2 h-8 w-8 bg-background/80 hover:bg-background"
+              variant={inWishlist ? "default" : "ghost"}
+              className={`absolute top-2 right-2 h-8 w-8 ${
+                inWishlist 
+                  ? 'bg-red-500 hover:bg-red-600 text-white' 
+                  : 'bg-background/80 hover:bg-background'
+              }`}
               onClick={handleWishlistToggle}
+              title={inWishlist ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             >
               <Heart 
                 size={16} 
-                className={isInWishlist ? 'fill-red-500 text-red-500' : ''} 
+                className={inWishlist ? 'fill-current' : ''} 
               />
             </Button>
           )}
