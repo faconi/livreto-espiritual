@@ -22,25 +22,29 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const isInWishlist = useCallback((bookId: string) => wishlist.includes(bookId), [wishlist]);
 
   const toggleWishlist = useCallback((bookId: string, bookTitle?: string) => {
-    const wasInWishlist = wishlist.includes(bookId);
-    
-    setWishlist(prev => 
-      prev.includes(bookId) 
+    setWishlist(prev => {
+      const wasInWishlist = prev.includes(bookId);
+      const newWishlist = wasInWishlist 
         ? prev.filter(id => id !== bookId)
-        : [...prev, bookId]
-    );
-
-    toast({
-      title: wasInWishlist ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
-      description: bookTitle 
-        ? (wasInWishlist 
-            ? `"${bookTitle}" foi removido da sua lista.`
-            : `"${bookTitle}" foi adicionado à sua lista.`)
-        : (wasInWishlist 
-            ? 'Livro removido da sua lista de desejos.'
-            : 'Livro adicionado à sua lista de desejos.'),
+        : [...prev, bookId];
+      
+      // Show toast after determining action
+      setTimeout(() => {
+        toast({
+          title: wasInWishlist ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
+          description: bookTitle 
+            ? (wasInWishlist 
+                ? `"${bookTitle}" foi removido da sua lista.`
+                : `"${bookTitle}" foi adicionado à sua lista.`)
+            : (wasInWishlist 
+                ? 'Livro removido da sua lista de desejos.'
+                : 'Livro adicionado à sua lista de desejos.'),
+        });
+      }, 0);
+      
+      return newWishlist;
     });
-  }, [wishlist, setWishlist, toast]);
+  }, [setWishlist, toast]);
 
   const addToWishlist = useCallback((bookId: string, bookTitle?: string) => {
     if (!wishlist.includes(bookId)) {
