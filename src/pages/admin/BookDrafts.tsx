@@ -56,28 +56,9 @@ const lookupISBN = async (isbn: string): Promise<{ title: string; author: string
     return isbnDatabase[cleanIsbn];
   }
   
-  // For unknown ISBNs, randomly decide if found (30% chance)
-  if (Math.random() > 0.7) {
-    return null;
-  }
-  
-  // Generate realistic-looking spiritist book data for unknown ISBNs
-  const authors = ['Chico Xavier', 'Divaldo Franco', 'Zíbia Gasparetto', 'Vera Lúcia Marinzeck'];
-  const spirits = ['Emmanuel', 'André Luiz', 'Joanna de Ângelis', 'Patrícia', 'Lucius'];
-  const publishers = ['FEB', 'Leal', 'Vida & Consciência', 'Petit', 'Ideal'];
-  const titles = [
-    'Luz Interior', 'Caminhos da Alma', 'Renovando Atitudes', 'Lições de Sabedoria',
-    'O Despertar', 'Encontros na Eternidade', 'Palavras do Coração', 'Reflexões Espirituais'
-  ];
-  
-  return {
-    title: titles[Math.floor(Math.random() * titles.length)],
-    author: authors[Math.floor(Math.random() * authors.length)],
-    spiritAuthor: spirits[Math.floor(Math.random() * spirits.length)],
-    publisher: publishers[Math.floor(Math.random() * publishers.length)],
-    year: 1990 + Math.floor(Math.random() * 34),
-    pages: 200 + Math.floor(Math.random() * 300),
-  };
+  // For unknown ISBNs, return null (not found)
+  // In a real app, this would call external APIs like Open Library, Google Books, etc.
+  return null;
 };
 
 export default function BookDrafts() {

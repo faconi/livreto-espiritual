@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { 
+import { BookDraft } from '@/types';
+import {
   ArrowLeft, 
   Search, 
   Loader2, 
@@ -54,10 +55,14 @@ type BookFormData = z.infer<typeof bookSchema>;
 
 export default function BookForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Get draft from navigation state (when coming from BookDrafts)
+  const draftFromState = location.state?.draft as BookDraft | undefined;
 
   const isEditing = !!id;
 
@@ -88,7 +93,7 @@ export default function BookForm() {
     },
   });
 
-  // Load book data when editing
+  // Load book data when editing existing book
   useEffect(() => {
     if (isEditing && id) {
       const book = mockBooks.find(b => b.id === id);
@@ -121,6 +126,36 @@ export default function BookForm() {
       }
     }
   }, [id, isEditing, form]);
+
+  // Load draft data when coming from BookDrafts page
+  useEffect(() => {
+    if (draftFromState && !isEditing) {
+      const bookData = draftFromState.bookData;
+      form.reset({
+        isbn: draftFromState.isbn || draftFromState.barcode || '',
+        title: bookData?.title || '',
+        author: bookData?.author || '',
+        spiritAuthor: bookData?.spiritAuthor || '',
+        publisher: bookData?.publisher || '',
+        category: bookData?.category || '',
+        edition: bookData?.edition || '',
+        year: bookData?.year?.toString() || '',
+        pages: bookData?.pages?.toString() || '',
+        description: bookData?.description || '',
+        coverUrl: bookData?.coverUrl || '',
+        tags: bookData?.tags?.join(', ') || '',
+        quantityForLoan: '0',
+        quantityForSale: '0',
+        acquisitionPrice: '',
+        salePrice: '',
+        suggestedMargin: '80',
+        discount: '0',
+        isDonation: false,
+        invoiceNumber: '',
+        acquisitionDate: '',
+      });
+    }
+  }, [draftFromState, isEditing, form]);
 
   const acquisitionPrice = parseFloat(form.watch('acquisitionPrice') || '0');
   const suggestedMargin = parseFloat(form.watch('suggestedMargin') || '80');
