@@ -20,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { BarcodeScanner } from '@/components/books/BarcodeScanner';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { useBookDrafts } from '@/contexts/BookDraftsContext';
 
 // Mock loan/sale history for books
 const mockBookHistory = {
@@ -38,15 +39,18 @@ const mockBookHistory = {
 export default function AdminBooks() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { addDrafts, drafts } = useBookDrafts();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
 
   const handleSaveDrafts = (codes: string[]) => {
+    addDrafts(codes);
     toast({
       title: 'Rascunhos salvos',
       description: `${codes.length} códigos foram salvos como rascunhos.`,
     });
+    setScannerOpen(false);
     navigate('/admin/livros/rascunhos');
   };
 
@@ -157,7 +161,7 @@ export default function AdminBooks() {
             <Button variant="outline" asChild>
               <Link to="/admin/livros/rascunhos">
                 <FileText size={16} className="mr-2" />
-                Rascunhos
+                Rascunhos {drafts.length > 0 && `(${drafts.length})`}
               </Link>
             </Button>
             <Button variant="outline" onClick={() => setScannerOpen(true)}>
