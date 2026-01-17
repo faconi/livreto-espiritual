@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Camera, Loader2, Save, Chrome, Facebook, Building2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { User, Camera, Loader2, Save, Chrome, Facebook, Building2, ClipboardList, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +15,6 @@ import { Separator } from '@/components/ui/separator';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-
 const profileSchema = z.object({
   fullName: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
   socialName: z.string().optional(),
@@ -110,6 +110,31 @@ export default function Profile() {
         </h1>
 
         <div className="space-y-4 sm:space-y-6">
+          {/* Quick Actions Card */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Ações Rápidas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" asChild>
+                  <Link to="/minhas-atividades">
+                    <Activity size={16} className="mr-2" />
+                    Minhas Atividades
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/minhas-atividades">
+                    <ClipboardList size={16} className="mr-2" />
+                    Minhas Pendências
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Auth Provider Card */}
           {providerConfig && (
             <Card>
