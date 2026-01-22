@@ -180,3 +180,16 @@ export interface Message {
   relatedItemId?: string;
   relatedItemType?: 'loan' | 'sale' | 'book';
 }
+
+export interface BookReview {
+  id: string;
+  bookId: string;
+  userId: string;
+  userName: string;
+  userAvatarUrl?: string;
+  rating: number; // 1-5 stars
+  comment: string;
+  createdAt: Date;
+  updatedAt?: Date;
+  helpful?: number; // count of "helpful" votes
+}

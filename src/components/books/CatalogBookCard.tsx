@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { LoanRequestDialog } from '@/components/loans/LoanRequestDialog';
 import { PurchaseConfirmDialog } from '@/components/books/PurchaseConfirmDialog';
+import { BookRatingSummary } from '@/components/reviews/BookRatingSummary';
 import { useToast } from '@/hooks/use-toast';
 
 interface CatalogBookCardProps {
@@ -117,6 +118,11 @@ export function CatalogBookCard({ book }: CatalogBookCardProps) {
               {book.spiritAuthor}
             </p>
           )}
+          
+          {/* Rating */}
+          <div className="mt-1.5">
+            <BookRatingSummary bookId={book.id} />
+          </div>
 
           <div className="flex items-center justify-between mt-2 sm:mt-3">
             {book.salePrice ? (

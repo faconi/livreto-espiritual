@@ -9,6 +9,7 @@ import { useWishlist } from '@/contexts/WishlistContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { LoanRequestDialog } from '@/components/loans/LoanRequestDialog';
 import { PurchaseConfirmDialog } from '@/components/books/PurchaseConfirmDialog';
+import { BookRatingSummary } from '@/components/reviews/BookRatingSummary';
 import { useToast } from '@/hooks/use-toast';
 
 interface CatalogBookListItemProps {
@@ -73,6 +74,9 @@ export function CatalogBookListItem({ book }: CatalogBookListItemProps) {
                 <span className="truncate">{book.publisher}</span>
                 {book.edition && <span className="hidden sm:inline">• {book.edition} ed.</span>}
                 {book.category && <span>• {book.category}</span>}
+              </div>
+              <div className="mt-1">
+                <BookRatingSummary bookId={book.id} />
               </div>
             </div>
 

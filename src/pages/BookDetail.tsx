@@ -1,24 +1,32 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, BookMarked, ShoppingCart, Calendar, Building2, FileText } from 'lucide-react';
+import { ArrowLeft, BookMarked, ShoppingCart, Calendar, Building2, FileText, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useReviews } from '@/contexts/ReviewContext';
 import { mockBooks } from '@/data/mockBooks';
 import { LoanRequestDialog } from '@/components/loans/LoanRequestDialog';
+import { ReviewForm } from '@/components/reviews/ReviewForm';
+import { ReviewList } from '@/components/reviews/ReviewList';
+import { StarRating } from '@/components/reviews/StarRating';
 import { Book } from '@/types';
 
 export default function BookDetail() {
   const { id } = useParams();
   const { addToCart } = useCart();
   const { user } = useAuth();
+  const { getBookAverageRating, getUserReview } = useReviews();
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
 
   const book = mockBooks.find(b => b.id === id);
+  const { average, count } = getBookAverageRating(id || '');
+  const userReview = user && id ? getUserReview(id, user.id) : undefined;
 
   if (!book) {
     return (
@@ -109,6 +117,16 @@ export default function BookDetail() {
                   {book.edition} edição
                 </p>
               )}
+              
+              {/* Rating summary */}
+              {count > 0 && (
+                <div className="flex items-center justify-center md:justify-start gap-2 mt-3">
+                  <StarRating rating={average} size="md" />
+                  <span className="text-sm text-muted-foreground">
+                    {average.toFixed(1)} ({count} {count === 1 ? 'avaliação' : 'avaliações'})
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Metadata */}
@@ -141,16 +159,37 @@ export default function BookDetail() {
             <Separator />
 
             {/* Description */}
-            {book.description && (
-              <div>
-                <h2 className="text-base sm:text-lg font-semibold mb-2">Descrição</h2>
-                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                  {book.description}
-                </p>
-              </div>
-            )}
-
-            <Separator />
+            <Tabs defaultValue="description" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="description">Descrição</TabsTrigger>
+                <TabsTrigger value="reviews" className="flex items-center gap-1.5">
+                  <Star size={14} />
+                  Avaliações {count > 0 && `(${count})`}
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="description" className="mt-4">
+                {book.description ? (
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                    {book.description}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    Descrição não disponível.
+                  </p>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="reviews" className="mt-4 space-y-4">
+                {/* User review form */}
+                {user && id && (
+                  <ReviewForm bookId={id} existingReview={userReview} />
+                )}
+                
+                {/* Other reviews */}
+                <ReviewList bookId={id || ''} currentUserId={user?.id} />
+              </TabsContent>
+            </Tabs>
 
             {/* Availability and pricing - stack on mobile */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
