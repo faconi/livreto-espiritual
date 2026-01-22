@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookMarked, Check, X, Clock, AlertTriangle, Eye, RotateCcw } from 'lucide-react';
+import { BookMarked, Check, X, Clock, AlertTriangle, Eye, RotateCcw, Plus, RefreshCw, Undo2 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,16 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, addDays } from 'date-fns';
+import { AdminLoanDialog } from '@/components/admin/AdminLoanDialog';
+import { AdminReturnDialog } from '@/components/admin/AdminReturnDialog';
+import { AdminRenewalDialog } from '@/components/admin/AdminRenewalDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ptBR } from 'date-fns/locale';
 import {
   AlertDialog,
@@ -112,6 +121,12 @@ export default function AdminLoans() {
     loan: typeof mockLoans[0];
   } | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
+  
+  // Manual admin dialogs
+  const [newLoanOpen, setNewLoanOpen] = useState(false);
+  const [manualReturnOpen, setManualReturnOpen] = useState(false);
+  const [manualRenewalOpen, setManualRenewalOpen] = useState(false);
+  const [selectedLoanForAction, setSelectedLoanForAction] = useState<typeof mockLoans[0] | null>(null);
 
   const columns: ColumnDef<typeof mockLoans[0]>[] = [
     {
@@ -341,12 +356,115 @@ export default function AdminLoans() {
   const pendingRenewals = loans.filter(l => l.status === 'pending_renewal').length;
   const overdueLoans = loans.filter(l => l.status === 'overdue').length;
 
+  // Handle manual admin actions
+  const handleNewLoan = (data: {
+    userId: string;
+    userName: string;
+    userEmail: string;
+    bookId: string;
+    bookTitle: string;
+    durationDays: number;
+    adminNotes?: string;
+  }) => {
+    const newLoan = {
+      id: `l${Date.now()}`,
+      bookId: data.bookId,
+      userId: data.userId,
+      bookTitle: data.bookTitle,
+      userName: data.userName,
+      userEmail: data.userEmail,
+      status: 'active' as const,
+      borrowedAt: new Date(),
+      dueDate: addDays(new Date(), data.durationDays),
+      adminNotes: data.adminNotes ? `[MANUAL] ${data.adminNotes}` : '[MANUAL] Empréstimo registrado pelo administrador',
+    };
+    setLoans(prev => [newLoan, ...prev]);
+  };
+
+  const handleManualReturn = (loanId: string, adminNotes?: string) => {
+    setLoans(prev => prev.map(l => 
+      l.id === loanId ? {
+        ...l,
+        status: 'returned' as const,
+        returnedAt: new Date(),
+        adminNotes: adminNotes ? `[MANUAL] ${adminNotes}` : '[MANUAL] Devolução registrada pelo administrador',
+      } : l
+    ));
+  };
+
+  const handleManualRenewal = (loanId: string, extraDays: number, adminNotes?: string) => {
+    setLoans(prev => prev.map(l => 
+      l.id === loanId ? {
+        ...l,
+        dueDate: addDays(new Date(l.dueDate), extraDays),
+        renewalCount: (l.renewalCount || 0) + 1,
+        adminNotes: adminNotes ? `[MANUAL] ${adminNotes}` : '[MANUAL] Renovação registrada pelo administrador',
+      } : l
+    ));
+  };
+
+  // Get active loans for return/renewal actions
+  const activeLoansForAction = loans.filter(l => 
+    l.status === 'active' || l.status === 'overdue'
+  );
+
   return (
     <MainLayout showFooter={false}>
       <div className="container py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <BookMarked className="text-primary" size={28} />
-          <h1 className="text-3xl font-serif font-bold">Gerenciar Empréstimos</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <BookMarked className="text-primary" size={28} />
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold">Gerenciar Empréstimos</h1>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus size={16} className="mr-2" />
+                Ação Manual
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => setNewLoanOpen(true)}>
+                <BookMarked size={16} className="mr-2" />
+                Novo Empréstimo
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => {
+                  if (activeLoansForAction.length > 0) {
+                    setSelectedLoanForAction(activeLoansForAction[0]);
+                    setManualReturnOpen(true);
+                  } else {
+                    toast({
+                      title: 'Sem empréstimos ativos',
+                      description: 'Não há empréstimos ativos para devolver.',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+              >
+                <Undo2 size={16} className="mr-2" />
+                Registrar Devolução
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  if (activeLoansForAction.length > 0) {
+                    setSelectedLoanForAction(activeLoansForAction[0]);
+                    setManualRenewalOpen(true);
+                  } else {
+                    toast({
+                      title: 'Sem empréstimos ativos',
+                      description: 'Não há empréstimos ativos para renovar.',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+              >
+                <RefreshCw size={16} className="mr-2" />
+                Registrar Renovação
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Summary Cards */}
@@ -549,6 +667,27 @@ export default function AdminLoans() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Admin Manual Action Dialogs */}
+        <AdminLoanDialog
+          open={newLoanOpen}
+          onOpenChange={setNewLoanOpen}
+          onConfirm={handleNewLoan}
+        />
+
+        <AdminReturnDialog
+          open={manualReturnOpen}
+          onOpenChange={setManualReturnOpen}
+          loan={selectedLoanForAction}
+          onConfirm={handleManualReturn}
+        />
+
+        <AdminRenewalDialog
+          open={manualRenewalOpen}
+          onOpenChange={setManualRenewalOpen}
+          loan={selectedLoanForAction}
+          onConfirm={handleManualRenewal}
+        />
       </div>
     </MainLayout>
   );
