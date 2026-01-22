@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Eye, Receipt, CreditCard, Banknote } from 'lucide-react';
+import { ShoppingBag, Eye, Receipt, CreditCard, Banknote, Plus, Check } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AdminSaleDialog } from '@/components/admin/AdminSaleDialog';
+import { useToast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Mock sales data
 const mockSales: (Sale & { bookTitle: string; userName: string; userEmail: string })[] = [
@@ -103,9 +111,53 @@ const paymentStatusConfig: Record<Sale['paymentStatus'], { label: string; varian
 };
 
 export default function AdminSales() {
+  const { toast } = useToast();
+  const [sales, setSales] = useState(mockSales);
   const [selectedSale, setSelectedSale] = useState<typeof mockSales[0] | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [newSaleOpen, setNewSaleOpen] = useState(false);
 
+  // Handle manual sale creation
+  const handleNewSale = (data: {
+    userId: string;
+    userName: string;
+    userEmail: string;
+    bookId: string;
+    bookTitle: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    paymentMethod: 'cash' | 'pix';
+    paymentStatus: 'pending' | 'completed';
+    adminNotes?: string;
+  }) => {
+    const newSale = {
+      id: `s${Date.now()}`,
+      bookId: data.bookId,
+      userId: data.userId,
+      bookTitle: data.bookTitle,
+      userName: data.userName,
+      userEmail: data.userEmail,
+      quantity: data.quantity,
+      unitPrice: data.unitPrice,
+      totalPrice: data.totalPrice,
+      paymentMethod: data.paymentMethod,
+      paymentStatus: data.paymentStatus,
+      createdAt: new Date(),
+    };
+    setSales(prev => [newSale, ...prev]);
+  };
+
+  // Handle confirm pending payment
+  const handleConfirmPayment = (saleId: string) => {
+    setSales(prev => prev.map(s => 
+      s.id === saleId ? { ...s, paymentStatus: 'completed' as const } : s
+    ));
+    toast({
+      title: 'Pagamento confirmado',
+      description: 'O pagamento foi registrado como recebido.',
+    });
+  };
   const columns: ColumnDef<typeof mockSales[0]>[] = [
     {
       id: 'id',
@@ -146,7 +198,7 @@ export default function AdminSales() {
       accessorKey: 'totalPrice',
       sortable: true,
       cell: (row) => (
-        <span className="font-medium text-green-600">
+        <span className="font-medium text-primary">
           R$ {row.totalPrice.toFixed(2)}
         </span>
       ),
@@ -167,7 +219,7 @@ export default function AdminSales() {
           {row.paymentMethod === 'pix' ? (
             <CreditCard size={14} className="text-primary" />
           ) : (
-            <Banknote size={14} className="text-green-600" />
+            <Banknote size={14} className="text-primary" />
           )}
           {paymentMethodLabels[row.paymentMethod]}
         </div>
@@ -197,17 +249,32 @@ export default function AdminSales() {
       id: 'actions',
       header: 'Ações',
       cell: (row) => (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelectedSale(row);
-            setDetailsOpen(true);
-          }}
-        >
-          <Eye size={16} />
-        </Button>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedSale(row);
+              setDetailsOpen(true);
+            }}
+          >
+            <Eye size={16} />
+          </Button>
+          {row.paymentStatus === 'pending' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleConfirmPayment(row.id);
+              }}
+            >
+              <Check size={16} />
+            </Button>
+          )}
+        </div>
       ),
     },
   ];
@@ -218,17 +285,34 @@ export default function AdminSales() {
   };
 
   // Summary stats
-  const totalRevenue = mockSales.filter(s => s.paymentStatus === 'completed').reduce((sum, s) => sum + s.totalPrice, 0);
-  const pendingSales = mockSales.filter(s => s.paymentStatus === 'pending').length;
-  const totalSales = mockSales.length;
-  const pixSales = mockSales.filter(s => s.paymentMethod === 'pix' && s.paymentStatus === 'completed').reduce((sum, s) => sum + s.totalPrice, 0);
+  const totalRevenue = sales.filter(s => s.paymentStatus === 'completed').reduce((sum, s) => sum + s.totalPrice, 0);
+  const pendingSales = sales.filter(s => s.paymentStatus === 'pending').length;
+  const totalSales = sales.length;
+  const pixSales = sales.filter(s => s.paymentMethod === 'pix' && s.paymentStatus === 'completed').reduce((sum, s) => sum + s.totalPrice, 0);
 
   return (
     <MainLayout showFooter={false}>
       <div className="container py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <ShoppingBag className="text-primary" size={28} />
-          <h1 className="text-3xl font-serif font-bold">Gerenciar Vendas</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <ShoppingBag className="text-primary" size={28} />
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold">Gerenciar Vendas</h1>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus size={16} className="mr-2" />
+                Ação Manual
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setNewSaleOpen(true)}>
+                <ShoppingBag size={16} className="mr-2" />
+                Nova Venda
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Summary Cards */}
@@ -260,7 +344,7 @@ export default function AdminSales() {
         </div>
 
         <DataTable
-          data={mockSales}
+          data={sales}
           columns={columns}
           searchPlaceholder="Buscar vendas..."
           searchableFields={['bookTitle', 'userName', 'userEmail']}
@@ -346,6 +430,13 @@ export default function AdminSales() {
             </ScrollArea>
           </DialogContent>
         </Dialog>
+
+        {/* Admin Manual Action Dialog */}
+        <AdminSaleDialog
+          open={newSaleOpen}
+          onOpenChange={setNewSaleOpen}
+          onConfirm={handleNewSale}
+        />
       </div>
     </MainLayout>
   );
