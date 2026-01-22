@@ -9,6 +9,7 @@ import { ActivityProvider } from "@/contexts/ActivityContext";
 import { LoanProvider } from "@/contexts/LoanContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { BookDraftsProvider } from "@/contexts/BookDraftsContext";
+import { ReviewProvider } from "@/contexts/ReviewContext";
 // Pages
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -116,15 +117,17 @@ const App = () => (
         <ActivityProvider>
           <LoanProvider>
             <WishlistProvider>
-              <BookDraftsProvider>
-                <CartProvider>
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <AppRoutes />
-                  </BrowserRouter>
-                </CartProvider>
-              </BookDraftsProvider>
+              <ReviewProvider>
+                <BookDraftsProvider>
+                  <CartProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                      <AppRoutes />
+                    </BrowserRouter>
+                  </CartProvider>
+                </BookDraftsProvider>
+              </ReviewProvider>
             </WishlistProvider>
           </LoanProvider>
         </ActivityProvider>
