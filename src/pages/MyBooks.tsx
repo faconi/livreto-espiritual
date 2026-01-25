@@ -18,7 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLoan, MAX_ACTIVE_LOANS } from '@/contexts/LoanContext';
+import { useLoan } from '@/contexts/LoanContext';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { Loan, Sale, Book, WishlistItem } from '@/types';
 import { mockBooks } from '@/data/mockBooks';
@@ -134,10 +135,11 @@ export default function MyBooks() {
   const { user } = useAuth();
   const { loans, activeLoans: contextActiveLoans, requestReturn, requestRenewal } = useLoan();
   const { wishlist, isInWishlist } = useWishlist();
+  const { businessRules } = useSystemSettings();
   const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<LoanWithBook | null>(null);
   const [selectedLoanForRenewal, setSelectedLoanForRenewal] = useState<LoanWithBook | null>(null);
 
-  const remainingLoans = MAX_ACTIVE_LOANS - contextActiveLoans.length;
+  const remainingLoans = businessRules.maxSimultaneousLoans - contextActiveLoans.length;
 
   const getBookDetails = (bookId: string) => {
     return mockBooks.find(b => b.id === bookId);

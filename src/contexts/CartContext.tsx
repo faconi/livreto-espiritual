@@ -1,18 +1,13 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, ReactNode, useCallback } from 'react';
 import { Book, CartItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { mockBooks } from '@/data/mockBooks';
-
-const STORAGE_KEY = 'biblioluz_cart';
-
-interface StoredCartItem {
-  bookId: string;
-  quantity: number;
-  type: 'loan' | 'purchase';
-}
+import { useAuth } from './AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { db, mapDbBookToBook } from '@/services/database';
 
 interface CartContextType {
   items: CartItem[];
+  isLoading: boolean;
   addToCart: (book: Book, type: 'loan' | 'purchase') => void;
   removeFromCart: (bookId: string) => void;
   updateQuantity: (bookId: string, quantity: number) => void;
@@ -23,108 +18,135 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-function loadCart(): StoredCartItem[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return [];
-    return JSON.parse(stored);
-  } catch {
-    return [];
-  }
-}
-
-function saveCart(items: CartItem[]) {
-  try {
-    const toStore: StoredCartItem[] = items.map(item => ({
-      bookId: item.book.id,
-      quantity: item.quantity,
-      type: item.type,
-    }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
-  } catch (error) {
-    console.warn('Error saving cart to localStorage:', error);
-  }
-}
-
-function hydrateCart(storedItems: StoredCartItem[]): CartItem[] {
-  return storedItems
-    .map(stored => {
-      const book = mockBooks.find(b => b.id === stored.bookId);
-      if (!book) return null;
-      return {
-        book,
-        quantity: stored.quantity,
-        type: stored.type,
-      };
-    })
-    .filter((item): item is CartItem => item !== null);
-}
-
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => hydrateCart(loadCart()));
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  // Persist cart when it changes
-  useEffect(() => {
-    saveCart(items);
-  }, [items]);
+  const { data: cartData = [], isLoading } = useQuery({
+    queryKey: ['cart', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const items = await db.getCart(user.id);
+      return items.map(item => ({
+        id: item.id,
+        book: mapDbBookToBook(item.books),
+        quantity: item.quantity,
+        type: item.type as 'loan' | 'purchase',
+      }));
+    },
+    enabled: !!user,
+  });
 
-  const addToCart = useCallback((book: Book, type: 'loan' | 'purchase') => {
-    setItems(prev => {
-      const existing = prev.find(item => item.book.id === book.id && item.type === type);
-      
-      if (existing) {
-        toast({
-          title: 'Item já no carrinho',
-          description: 'Este livro já está no seu carrinho.',
-        });
-        return prev;
-      }
-      
+  const items: CartItem[] = cartData.map(item => ({
+    book: item.book,
+    quantity: item.quantity,
+    type: item.type,
+  }));
+
+  const addMutation = useMutation({
+    mutationFn: async ({ book, type }: { book: Book; type: 'loan' | 'purchase' }) => {
+      if (!user) throw new Error('User not authenticated');
+      await db.addToCart({
+        user_id: user.id,
+        book_id: book.id,
+        quantity: 1,
+        type,
+      });
+    },
+    onSuccess: (_, { book }) => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
       toast({
         title: 'Livro adicionado',
         description: `"${book.title}" foi adicionado ao carrinho.`,
       });
-      
-      return [...prev, { book, quantity: 1, type }];
-    });
-  }, [toast]);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    },
+  });
 
-  const removeFromCart = useCallback((bookId: string) => {
-    setItems(prev => prev.filter(item => item.book.id !== bookId));
-  }, []);
+  const updateMutation = useMutation({
+    mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
+      await db.updateCartItem(itemId, { quantity });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    },
+  });
 
-  const updateQuantity = useCallback((bookId: string, quantity: number) => {
-    if (quantity < 1) {
-      removeFromCart(bookId);
+  const removeMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      await db.removeFromCart(itemId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    },
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('User not authenticated');
+      await db.clearCart(user.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    },
+  });
+
+  const addToCart = useCallback((book: Book, type: 'loan' | 'purchase') => {
+    if (!user) {
+      toast({ title: 'Faça login para adicionar ao carrinho', variant: 'destructive' });
       return;
     }
     
-    setItems(prev =>
-      prev.map(item => {
-        if (item.book.id === bookId) {
-          // Limit quantity to available stock
-          const maxQuantity = item.book.availableForSale;
-          const newQuantity = Math.min(quantity, maxQuantity);
-          
-          if (quantity > maxQuantity) {
-            toast({
-              title: 'Quantidade limitada',
-              description: `Apenas ${maxQuantity} unidades disponíveis em estoque.`,
-              variant: 'destructive',
-            });
-          }
-          
-          return { ...item, quantity: newQuantity };
-        }
-        return item;
-      })
-    );
-  }, [removeFromCart, toast]);
+    const existing = cartData.find(item => item.book.id === book.id && item.type === type);
+    if (existing) {
+      toast({
+        title: 'Item já no carrinho',
+        description: 'Este livro já está no seu carrinho.',
+      });
+      return;
+    }
+    
+    addMutation.mutate({ book, type });
+  }, [user, cartData, addMutation, toast]);
+
+  const removeFromCart = useCallback((bookId: string) => {
+    const item = cartData.find(i => i.book.id === bookId);
+    if (item) {
+      removeMutation.mutate(item.id);
+    }
+  }, [cartData, removeMutation]);
+
+  const updateQuantity = useCallback((bookId: string, quantity: number) => {
+    const item = cartData.find(i => i.book.id === bookId);
+    if (!item) return;
+    
+    if (quantity < 1) {
+      removeMutation.mutate(item.id);
+      return;
+    }
+    
+    const maxQuantity = item.book.availableForSale;
+    const newQuantity = Math.min(quantity, maxQuantity);
+    
+    if (quantity > maxQuantity) {
+      toast({
+        title: 'Quantidade limitada',
+        description: `Apenas ${maxQuantity} unidades disponíveis em estoque.`,
+        variant: 'destructive',
+      });
+    }
+    
+    updateMutation.mutate({ itemId: item.id, quantity: newQuantity });
+  }, [cartData, updateMutation, removeMutation, toast]);
 
   const clearCart = useCallback(() => {
-    setItems([]);
-  }, []);
+    if (user) {
+      clearMutation.mutate();
+    }
+  }, [user, clearMutation]);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   
@@ -141,6 +163,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{
         items,
+        isLoading,
         addToCart,
         removeFromCart,
         updateQuantity,
