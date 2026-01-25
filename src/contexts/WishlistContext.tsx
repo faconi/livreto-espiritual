@@ -1,9 +1,12 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useAuth } from './AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { db } from '@/services/database';
 
 interface WishlistContextType {
   wishlist: string[];
+  isLoading: boolean;
   isInWishlist: (bookId: string) => boolean;
   toggleWishlist: (bookId: string, bookTitle?: string) => void;
   addToWishlist: (bookId: string, bookTitle?: string) => void;
@@ -12,67 +15,91 @@ interface WishlistContextType {
 
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'biblioluz_wishlist';
-const initialWishlist = ['4', '6', '8'];
-
 export function WishlistProvider({ children }: { children: ReactNode }) {
-  const [wishlist, setWishlist] = useLocalStorage<string[]>(STORAGE_KEY, initialWishlist);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const isInWishlist = useCallback((bookId: string) => wishlist.includes(bookId), [wishlist]);
+  const { data: wishlistItems = [], isLoading } = useQuery({
+    queryKey: ['wishlist', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const items = await db.getWishlist(user.id);
+      return items.map(item => item.book_id);
+    },
+    enabled: !!user,
+  });
 
-  const toggleWishlist = useCallback((bookId: string, bookTitle?: string) => {
-    setWishlist(prev => {
-      const wasInWishlist = prev.includes(bookId);
-      const newWishlist = wasInWishlist 
-        ? prev.filter(id => id !== bookId)
-        : [...prev, bookId];
-      
-      // Show toast after determining action
-      setTimeout(() => {
-        toast({
-          title: wasInWishlist ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
-          description: bookTitle 
-            ? (wasInWishlist 
-                ? `"${bookTitle}" foi removido da sua lista.`
-                : `"${bookTitle}" foi adicionado à sua lista.`)
-            : (wasInWishlist 
-                ? 'Livro removido da sua lista de desejos.'
-                : 'Livro adicionado à sua lista de desejos.'),
-        });
-      }, 0);
-      
-      return newWishlist;
-    });
-  }, [setWishlist, toast]);
-
-  const addToWishlist = useCallback((bookId: string, bookTitle?: string) => {
-    if (!wishlist.includes(bookId)) {
-      setWishlist(prev => [...prev, bookId]);
+  const addMutation = useMutation({
+    mutationFn: async ({ bookId }: { bookId: string; bookTitle?: string }) => {
+      if (!user) throw new Error('User not authenticated');
+      await db.addToWishlist(user.id, bookId);
+    },
+    onSuccess: (_, { bookTitle }) => {
+      queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       toast({
         title: 'Adicionado aos favoritos',
-        description: bookTitle 
-          ? `"${bookTitle}" foi adicionado à sua lista.`
-          : 'Livro adicionado à sua lista de desejos.',
+        description: bookTitle ? `"${bookTitle}" foi adicionado à sua lista.` : 'Livro adicionado à sua lista de desejos.',
       });
-    }
-  }, [wishlist, setWishlist, toast]);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    },
+  });
 
-  const removeFromWishlist = useCallback((bookId: string, bookTitle?: string) => {
-    if (wishlist.includes(bookId)) {
-      setWishlist(prev => prev.filter(id => id !== bookId));
+  const removeMutation = useMutation({
+    mutationFn: async ({ bookId }: { bookId: string; bookTitle?: string }) => {
+      if (!user) throw new Error('User not authenticated');
+      await db.removeFromWishlist(user.id, bookId);
+    },
+    onSuccess: (_, { bookTitle }) => {
+      queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       toast({
         title: 'Removido dos favoritos',
-        description: bookTitle 
-          ? `"${bookTitle}" foi removido da sua lista.`
-          : 'Livro removido da sua lista de desejos.',
+        description: bookTitle ? `"${bookTitle}" foi removido da sua lista.` : 'Livro removido da sua lista de desejos.',
       });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const isInWishlist = useCallback((bookId: string) => wishlistItems.includes(bookId), [wishlistItems]);
+
+  const toggleWishlist = useCallback((bookId: string, bookTitle?: string) => {
+    if (!user) {
+      toast({ title: 'Faça login para adicionar aos favoritos', variant: 'destructive' });
+      return;
     }
-  }, [wishlist, setWishlist, toast]);
+    
+    if (isInWishlist(bookId)) {
+      removeMutation.mutate({ bookId, bookTitle });
+    } else {
+      addMutation.mutate({ bookId, bookTitle });
+    }
+  }, [user, isInWishlist, addMutation, removeMutation, toast]);
+
+  const addToWishlist = useCallback((bookId: string, bookTitle?: string) => {
+    if (!user) {
+      toast({ title: 'Faça login para adicionar aos favoritos', variant: 'destructive' });
+      return;
+    }
+    if (!isInWishlist(bookId)) {
+      addMutation.mutate({ bookId, bookTitle });
+    }
+  }, [user, isInWishlist, addMutation, toast]);
+
+  const removeFromWishlist = useCallback((bookId: string, bookTitle?: string) => {
+    if (!user) return;
+    if (isInWishlist(bookId)) {
+      removeMutation.mutate({ bookId, bookTitle });
+    }
+  }, [user, isInWishlist, removeMutation]);
 
   return (
     <WishlistContext.Provider value={{ 
-      wishlist, 
+      wishlist: wishlistItems, 
+      isLoading,
       isInWishlist, 
       toggleWishlist, 
       addToWishlist, 

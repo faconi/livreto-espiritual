@@ -214,10 +214,6 @@ export default function Login() {
                 Cadastre-se
               </Link>
             </p>
-
-            <p className="text-center text-xs text-muted-foreground">
-              <strong>Demo:</strong> admin@geec.com.br / admin123 ou usuario@email.com / user123
-            </p>
           </CardContent>
         </Card>
       </div>

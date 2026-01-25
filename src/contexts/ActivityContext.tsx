@@ -1,59 +1,62 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
-import { Activity as ActivityType, ActivityType as ActivityTypeEnum } from '@/types';
+import React, { createContext, useContext, ReactNode, useCallback } from 'react';
+import { Activity as ActivityType } from '@/types';
+import { useAuth } from './AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { db, mapDbActivityToActivity } from '@/services/database';
 
 interface ActivityContextType {
   activities: ActivityType[];
+  isLoading: boolean;
   addActivity: (activity: Omit<ActivityType, 'id' | 'createdAt'>) => void;
   clearActivities: () => void;
 }
 
 const ActivityContext = createContext<ActivityContextType | undefined>(undefined);
 
-// Initial mock activities
-const initialActivities: ActivityType[] = [
-  {
-    id: 'a1',
-    userId: '2',
-    type: 'loan_confirmed',
-    title: 'Empréstimo confirmado',
-    description: 'Você solicitou o empréstimo de "O Livro dos Espíritos"',
-    itemId: '1',
-    itemTitle: 'O Livro dos Espíritos',
-    createdAt: new Date('2024-01-15T10:30:00'),
-    actionUrl: '/meus-livros',
-  },
-  {
-    id: 'a2',
-    userId: '2',
-    type: 'purchase',
-    title: 'Compra realizada',
-    description: 'Você comprou "O Evangelho Segundo o Espiritismo"',
-    itemId: '2',
-    itemTitle: 'O Evangelho Segundo o Espiritismo',
-    createdAt: new Date('2024-01-10T14:20:00'),
-    metadata: { total: 42 },
-    actionUrl: '/meus-livros',
-  },
-];
-
 export function ActivityProvider({ children }: { children: ReactNode }) {
-  const [activities, setActivities] = useState<ActivityType[]>(initialActivities);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const { data: activities = [], isLoading } = useQuery({
+    queryKey: ['activities', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const dbActivities = await db.getActivities(user.id);
+      return dbActivities.map(mapDbActivityToActivity);
+    },
+    enabled: !!user,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (activity: Omit<ActivityType, 'id' | 'createdAt'>) => {
+      if (!user) throw new Error('User not authenticated');
+      await db.createActivity({
+        user_id: user.id,
+        type: activity.type,
+        title: activity.title,
+        description: activity.description,
+        item_id: activity.itemId || null,
+        item_title: activity.itemTitle || null,
+        metadata: activity.metadata as Record<string, unknown> || null,
+        action_url: activity.actionUrl || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    },
+  });
 
   const addActivity = useCallback((activity: Omit<ActivityType, 'id' | 'createdAt'>) => {
-    const newActivity: ActivityType = {
-      ...activity,
-      id: `activity_${Date.now()}`,
-      createdAt: new Date(),
-    };
-    setActivities(prev => [newActivity, ...prev]);
-  }, []);
+    if (!user) return;
+    createMutation.mutate(activity);
+  }, [user, createMutation]);
 
   const clearActivities = useCallback(() => {
-    setActivities([]);
+    // Not implemented for database - activities are permanent records
   }, []);
 
   return (
-    <ActivityContext.Provider value={{ activities, addActivity, clearActivities }}>
+    <ActivityContext.Provider value={{ activities, isLoading, addActivity, clearActivities }}>
       {children}
     </ActivityContext.Provider>
   );

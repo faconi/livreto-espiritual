@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { AlertTriangle, BookMarked, Calendar, CheckCircle, Info } from 'lucide-react';
-import { useLoan, MAX_ACTIVE_LOANS, LOAN_DURATION_DAYS, MAX_RENEWALS } from '@/contexts/LoanContext';
+import { useLoan } from '@/contexts/LoanContext';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { Badge } from '@/components/ui/badge';
 
 interface LoanRequestDialogProps {
@@ -26,14 +27,15 @@ export function LoanRequestDialog({
   onOpenChange,
   onConfirm,
 }: LoanRequestDialogProps) {
-  const { requestLoan, activeLoans, canBorrow, availableStock } = useLoan();
+  const { requestLoan, activeLoans, canBorrow } = useLoan();
+  const { businessRules } = useSystemSettings();
   const [isConfirming, setIsConfirming] = useState(false);
 
   if (!book) return null;
 
   const { allowed, reason } = canBorrow(book.id);
-  const remainingLoans = MAX_ACTIVE_LOANS - activeLoans.length;
-  const stockInfo = availableStock.get(book.id);
+  const remainingLoans = businessRules.maxSimultaneousLoans - activeLoans.length;
+  const stockInfo = { forLoan: book.availableForLoan, forSale: book.availableForSale };
 
   const handleConfirm = async () => {
     setIsConfirming(true);
@@ -49,7 +51,7 @@ export function LoanRequestDialog({
   };
 
   const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + LOAN_DURATION_DAYS);
+  dueDate.setDate(dueDate.getDate() + businessRules.maxLoanDays);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,7 +91,7 @@ export function LoanRequestDialog({
           <div className="flex items-center gap-2 text-sm bg-muted/50 p-3 rounded-lg">
             <Info size={16} className="text-muted-foreground" />
             <span>
-              Você possui <strong>{activeLoans.length}</strong> de <strong>{MAX_ACTIVE_LOANS}</strong> empréstimos ativos
+              Você possui <strong>{activeLoans.length}</strong> de <strong>{businessRules.maxSimultaneousLoans}</strong> empréstimos ativos
               {remainingLoans > 0 && (
                 <span className="text-muted-foreground"> ({remainingLoans} disponível)</span>
               )}
@@ -117,13 +119,13 @@ export function LoanRequestDialog({
                   <AlertTriangle size={16} className="mt-0.5 text-amber-500 flex-shrink-0" />
                   <p>
                     <strong>Responsabilidade do leitor:</strong> Você é responsável por retirar o livro 
-                    na biblioteca e devolvê-lo em bom estado dentro do prazo de <strong>{LOAN_DURATION_DAYS} dias</strong>.
+                    na biblioteca e devolvê-lo em bom estado dentro do prazo de <strong>{businessRules.maxLoanDays} dias</strong>.
                   </p>
                 </div>
                 <div className="flex items-start gap-2 text-muted-foreground">
                   <CheckCircle size={16} className="mt-0.5 text-green-500 flex-shrink-0" />
                   <p>
-                    Você pode renovar o empréstimo até {MAX_RENEWALS}x, mediante justificativa, 
+                    Você pode renovar o empréstimo até {businessRules.maxRenewals}x, mediante justificativa, 
                     sujeito à aprovação do administrador.
                   </p>
                 </div>

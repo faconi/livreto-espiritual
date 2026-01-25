@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { db, mapDbProfileToUser } from '@/services/database';
+import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -7,115 +10,136 @@ interface AuthContextType {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
-  register: (data: Partial<User> & { password: string }) => Promise<void>;
-  logout: () => void;
+  register: (data: { email: string; password: string; fullName: string; phone?: string }) => Promise<void>;
+  logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users for demo
-const mockUsers: (User & { password: string })[] = [
-  {
-    id: '1',
-    email: 'admin@geec.com.br',
-    password: 'admin123',
-    fullName: 'Administrador GEEC',
-    role: 'admin',
-    phone: '31999999999',
-    createdAt: new Date(),
-  },
-  {
-    id: '2',
-    email: 'usuario@email.com',
-    password: 'user123',
-    fullName: 'João Silva',
-    role: 'user',
-    phone: '31988888888',
-    createdAt: new Date(),
-  },
-];
+async function loadUserFromSession(supabaseUser: SupabaseUser): Promise<User | null> {
+  try {
+    const [profile, roles] = await Promise.all([
+      db.getProfile(supabaseUser.id),
+      db.getUserRoles(supabaseUser.id),
+    ]);
+    
+    if (!profile) {
+      // Profile not yet created by trigger, create a minimal user
+      return {
+        id: supabaseUser.id,
+        email: supabaseUser.email || '',
+        fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email || '',
+        role: 'user',
+        createdAt: new Date(),
+      };
+    }
+    
+    return mapDbProfileToUser(profile, roles);
+  } catch (error) {
+    console.error('Error loading user profile:', error);
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for saved session
-    const savedUser = localStorage.getItem('geec_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const appUser = await loadUserFromSession(session.user);
+        setUser(appUser);
+        setIsAdmin(appUser?.role === 'admin');
+      } else {
+        setUser(null);
+        setIsAdmin(false);
+      }
+      setIsLoading(false);
+    });
+
+    // Then check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const appUser = await loadUserFromSession(session.user);
+        setUser(appUser);
+        setIsAdmin(appUser?.role === 'admin');
+      }
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const foundUser = mockUsers.find(u => u.email === email && u.password === password);
-    if (!foundUser) {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } finally {
       setIsLoading(false);
-      throw new Error('Email ou senha inválidos');
     }
-    
-    const { password: _, ...userData } = foundUser;
-    setUser(userData);
-    localStorage.setItem('geec_user', JSON.stringify(userData));
-    setIsLoading(false);
   };
 
   const loginWithGoogle = async () => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock Google login
-    const googleUser: User = {
-      id: '3',
-      email: 'google.user@gmail.com',
-      fullName: 'Usuário Google',
-      role: 'user',
-      avatarUrl: 'https://ui-avatars.com/api/?name=Google+User&background=2E7D32&color=fff',
-      createdAt: new Date(),
-    };
-    
-    setUser(googleUser);
-    localStorage.setItem('geec_user', JSON.stringify(googleUser));
-    setIsLoading(false);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) throw error;
   };
 
-  const register = async (data: Partial<User> & { password: string }) => {
+  const register = async (data: { email: string; password: string; fullName: string; phone?: string }) => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const newUser: User = {
-      id: Date.now().toString(),
-      email: data.email || '',
-      fullName: data.fullName || '',
-      socialName: data.socialName,
-      phone: data.phone,
-      cpf: data.cpf,
-      address: data.address,
-      role: 'user',
-      createdAt: new Date(),
-    };
-    
-    setUser(newUser);
-    localStorage.setItem('geec_user', JSON.stringify(newUser));
-    setIsLoading(false);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            full_name: data.fullName,
+            phone: data.phone,
+          },
+        },
+      });
+      if (error) throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem('geec_user');
+    setIsAdmin(false);
   };
 
   const updateProfile = async (data: Partial<User>) => {
     if (!user) return;
     
-    const updatedUser = { ...user, ...data };
-    setUser(updatedUser);
-    localStorage.setItem('geec_user', JSON.stringify(updatedUser));
+    try {
+      await db.updateProfile(user.id, {
+        full_name: data.fullName,
+        social_name: data.socialName || null,
+        phone: data.phone || null,
+        cpf: data.cpf || null,
+        avatar_url: data.avatarUrl || null,
+        address: data.address ? JSON.parse(data.address) : null,
+      });
+      
+      setUser(prev => prev ? { ...prev, ...data } : null);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
   };
 
   return (
@@ -123,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isLoading,
-        isAdmin: user?.role === 'admin',
+        isAdmin,
         login,
         loginWithGoogle,
         register,
