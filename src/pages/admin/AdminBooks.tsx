@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Eye, Edit, Package, Users, History, ScanBarcode, FileText } from 'lucide-react';
+import { BookOpen, Eye, Edit, Package, Users, History, ScanBarcode, FileText, Loader2 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockBooks } from '@/data/mockBooks';
+import { useBooks } from '@/hooks/useBooks';
 import { Book } from '@/types';
 import { 
   Dialog, 
@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { useBookDrafts } from '@/contexts/BookDraftsContext';
 
-// Mock loan/sale history for books
+// Mock loan/sale history for books (will be replaced with real data later)
 const mockBookHistory = {
   '1': {
     loans: [
@@ -40,9 +40,14 @@ export default function AdminBooks() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { addDrafts, drafts } = useBookDrafts();
+  const { books, isLoading } = useBooks();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+
+  // Extract unique categories and publishers from database
+  const categories = useMemo(() => [...new Set(books.map(b => b.category).filter(Boolean))], [books]);
+  const publishers = useMemo(() => [...new Set(books.map(b => b.publisher).filter(Boolean))], [books]);
 
   const handleSaveDrafts = (codes: string[]) => {
     addDrafts(codes);
@@ -100,7 +105,7 @@ export default function AdminBooks() {
       sortable: true,
       filterable: true,
       filterType: 'select',
-      filterOptions: [...new Set(mockBooks.map(b => b.publisher))].map(p => ({ label: p, value: p })),
+      filterOptions: publishers.map(p => ({ label: p!, value: p! })),
     },
     {
       id: 'category',
@@ -109,7 +114,7 @@ export default function AdminBooks() {
       sortable: true,
       filterable: true,
       filterType: 'select',
-      filterOptions: [...new Set(mockBooks.map(b => b.category).filter(Boolean))].map(c => ({ label: c!, value: c! })),
+      filterOptions: categories.map(c => ({ label: c!, value: c! })),
     },
     {
       id: 'loanStock',
@@ -171,20 +176,26 @@ export default function AdminBooks() {
           </div>
         </div>
 
-        <DataTable
-          data={mockBooks}
-          columns={columns}
-          searchPlaceholder="Buscar livros..."
-          searchableFields={['title', 'author', 'spiritAuthor', 'isbn']}
-          onRowClick={handleRowClick}
-          isAdmin
-          onCreate={() => navigate('/admin/livros/novo')}
-          onExport={() => console.log('Export books')}
-          onImport={(file) => console.log('Import books', file)}
-          idField="id"
-          showViewToggle
-          defaultView="table"
-        />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <DataTable
+            data={books}
+            columns={columns}
+            searchPlaceholder="Buscar livros..."
+            searchableFields={['title', 'author', 'spiritAuthor', 'isbn']}
+            onRowClick={handleRowClick}
+            isAdmin
+            onCreate={() => navigate('/admin/livros/novo')}
+            onExport={() => console.log('Export books')}
+            onImport={(file) => console.log('Import books', file)}
+            idField="id"
+            showViewToggle
+            defaultView="table"
+          />
+        )}
 
         {/* Book Details Dialog */}
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>

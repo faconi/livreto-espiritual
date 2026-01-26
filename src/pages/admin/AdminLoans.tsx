@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { BookMarked, Check, X, Clock, AlertTriangle, Eye, RotateCcw, Plus, RefreshCw, Undo2 } from 'lucide-react';
+import { BookMarked, Check, X, Clock, AlertTriangle, Eye, RotateCcw, Plus, RefreshCw, Undo2, Loader2 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loan } from '@/types';
 import { 
   Dialog, 
   DialogContent, 
@@ -39,86 +38,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useLoansAdmin, LoanWithDetails } from '@/hooks/useLoans';
 
-// Mock loans data
-const mockLoans: (Loan & { bookTitle: string; userName: string; userEmail: string })[] = [
-  {
-    id: 'l1',
-    bookId: '1',
-    userId: '2',
-    bookTitle: 'O Livro dos Espíritos',
-    userName: 'João Silva',
-    userEmail: 'joao@email.com',
-    status: 'active',
-    borrowedAt: new Date('2024-01-15'),
-    dueDate: new Date('2024-01-30'),
-  },
-  {
-    id: 'l2',
-    bookId: '3',
-    userId: '3',
-    bookTitle: 'Nosso Lar',
-    userName: 'Maria Santos',
-    userEmail: 'maria@email.com',
-    status: 'pending_return',
-    borrowedAt: new Date('2024-01-10'),
-    dueDate: new Date('2024-01-25'),
-    returnJustification: 'Li e gostei muito, recomendo!',
-  },
-  {
-    id: 'l3',
-    bookId: '2',
-    userId: '4',
-    bookTitle: 'O Evangelho Segundo o Espiritismo',
-    userName: 'Pedro Lima',
-    userEmail: 'pedro@email.com',
-    status: 'pending_renewal',
-    borrowedAt: new Date('2024-01-05'),
-    dueDate: new Date('2024-01-20'),
-    renewalJustification: 'Estou estudando para um seminário e preciso de mais tempo.',
-    renewalCount: 0,
-  },
-  {
-    id: 'l4',
-    bookId: '7',
-    userId: '2',
-    bookTitle: 'A Gênese',
-    userName: 'João Silva',
-    userEmail: 'joao@email.com',
-    status: 'overdue',
-    borrowedAt: new Date('2023-12-15'),
-    dueDate: new Date('2023-12-30'),
-  },
-  {
-    id: 'l5',
-    bookId: '4',
-    userId: '3',
-    bookTitle: 'Paulo e Estêvão',
-    userName: 'Maria Santos',
-    userEmail: 'maria@email.com',
-    status: 'returned',
-    borrowedAt: new Date('2023-11-01'),
-    dueDate: new Date('2023-11-16'),
-    returnedAt: new Date('2023-11-14'),
-  },
-];
-
-const statusConfig: Record<Loan['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  pending: { label: 'Pendente', variant: 'secondary' },
   active: { label: 'Ativo', variant: 'default' },
   pending_return: { label: 'Devolução Pendente', variant: 'secondary' },
   pending_renewal: { label: 'Renovação Pendente', variant: 'secondary' },
+  return_pending: { label: 'Devolução Pendente', variant: 'secondary' },
+  renewal_pending: { label: 'Renovação Pendente', variant: 'secondary' },
   returned: { label: 'Devolvido', variant: 'outline' },
   overdue: { label: 'Atrasado', variant: 'destructive' },
 };
 
 export default function AdminLoans() {
   const { toast } = useToast();
-  const [loans, setLoans] = useState(mockLoans);
-  const [selectedLoan, setSelectedLoan] = useState<typeof mockLoans[0] | null>(null);
+  const { loans, isLoading, approveReturn, approveRenewal, rejectAction, createLoan } = useLoansAdmin();
+  const [selectedLoan, setSelectedLoan] = useState<LoanWithDetails | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     type: 'approve_return' | 'reject_return' | 'approve_renewal' | 'reject_renewal';
-    loan: typeof mockLoans[0];
+    loan: LoanWithDetails;
   } | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
   
@@ -126,9 +66,9 @@ export default function AdminLoans() {
   const [newLoanOpen, setNewLoanOpen] = useState(false);
   const [manualReturnOpen, setManualReturnOpen] = useState(false);
   const [manualRenewalOpen, setManualRenewalOpen] = useState(false);
-  const [selectedLoanForAction, setSelectedLoanForAction] = useState<typeof mockLoans[0] | null>(null);
+  const [selectedLoanForAction, setSelectedLoanForAction] = useState<LoanWithDetails | null>(null);
 
-  const columns: ColumnDef<typeof mockLoans[0]>[] = [
+  const columns: ColumnDef<LoanWithDetails>[] = [
     {
       id: 'bookTitle',
       header: 'Livro',
@@ -185,7 +125,7 @@ export default function AdminLoans() {
       filterType: 'select',
       filterOptions: Object.entries(statusConfig).map(([value, { label }]) => ({ label, value })),
       cell: (row) => {
-        const config = statusConfig[row.status];
+        const config = statusConfig[row.status] || statusConfig.active;
         return (
           <div className="flex items-center gap-2">
             <Badge variant={config.variant}>{config.label}</Badge>
@@ -270,7 +210,7 @@ export default function AdminLoans() {
     },
   ];
 
-  const handleRowClick = (loan: typeof mockLoans[0]) => {
+  const handleRowClick = (loan: LoanWithDetails) => {
     setSelectedLoan(loan);
     setAdminNotes(loan.adminNotes || '');
     setDetailsOpen(true);
@@ -280,44 +220,26 @@ export default function AdminLoans() {
     if (!confirmAction) return;
 
     const { type, loan } = confirmAction;
-    let newStatus: Loan['status'] = loan.status;
-    let message = '';
 
     switch (type) {
       case 'approve_return':
-        newStatus = 'returned';
-        message = 'Devolução aprovada com sucesso!';
+        approveReturn.mutate({ loanId: loan.id, adminNotes });
         break;
       case 'reject_return':
-        newStatus = 'active';
-        message = 'Devolução recusada. Empréstimo continua ativo.';
+      case 'reject_renewal':
+        rejectAction.mutate({ loanId: loan.id, adminNotes });
         break;
       case 'approve_renewal':
-        newStatus = 'active';
-        message = 'Renovação aprovada! Prazo estendido por mais 15 dias.';
-        break;
-      case 'reject_renewal':
-        newStatus = 'active';
-        message = 'Renovação recusada. Prazo original mantido.';
+        approveRenewal.mutate({ 
+          loanId: loan.id, 
+          newDueDate: addDays(new Date(loan.dueDate), 15),
+          adminNotes 
+        });
         break;
     }
 
-    setLoans(prev => prev.map(l => 
-      l.id === loan.id ? { 
-        ...l, 
-        status: newStatus,
-        returnedAt: type === 'approve_return' ? new Date() : l.returnedAt,
-        dueDate: type === 'approve_renewal' ? new Date(new Date(l.dueDate).getTime() + 15 * 24 * 60 * 60 * 1000) : l.dueDate,
-        renewalCount: type === 'approve_renewal' ? (l.renewalCount || 0) + 1 : l.renewalCount,
-      } : l
-    ));
-
-    toast({
-      title: 'Ação realizada',
-      description: message,
-    });
-
     setConfirmAction(null);
+    setAdminNotes('');
   };
 
   const getConfirmDialogContent = () => {
@@ -366,41 +288,30 @@ export default function AdminLoans() {
     durationDays: number;
     adminNotes?: string;
   }) => {
-    const newLoan = {
-      id: `l${Date.now()}`,
-      bookId: data.bookId,
+    createLoan.mutate({
       userId: data.userId,
-      bookTitle: data.bookTitle,
-      userName: data.userName,
-      userEmail: data.userEmail,
-      status: 'active' as const,
-      borrowedAt: new Date(),
+      bookId: data.bookId,
       dueDate: addDays(new Date(), data.durationDays),
       adminNotes: data.adminNotes ? `[MANUAL] ${data.adminNotes}` : '[MANUAL] Empréstimo registrado pelo administrador',
-    };
-    setLoans(prev => [newLoan, ...prev]);
+    });
   };
 
   const handleManualReturn = (loanId: string, adminNotes?: string) => {
-    setLoans(prev => prev.map(l => 
-      l.id === loanId ? {
-        ...l,
-        status: 'returned' as const,
-        returnedAt: new Date(),
-        adminNotes: adminNotes ? `[MANUAL] ${adminNotes}` : '[MANUAL] Devolução registrada pelo administrador',
-      } : l
-    ));
+    approveReturn.mutate({
+      loanId,
+      adminNotes: adminNotes ? `[MANUAL] ${adminNotes}` : '[MANUAL] Devolução registrada pelo administrador',
+    });
   };
 
   const handleManualRenewal = (loanId: string, extraDays: number, adminNotes?: string) => {
-    setLoans(prev => prev.map(l => 
-      l.id === loanId ? {
-        ...l,
-        dueDate: addDays(new Date(l.dueDate), extraDays),
-        renewalCount: (l.renewalCount || 0) + 1,
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      approveRenewal.mutate({
+        loanId,
+        newDueDate: addDays(new Date(loan.dueDate), extraDays),
         adminNotes: adminNotes ? `[MANUAL] ${adminNotes}` : '[MANUAL] Renovação registrada pelo administrador',
-      } : l
-    ));
+      });
+    }
   };
 
   // Get active loans for return/renewal actions

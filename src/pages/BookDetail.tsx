@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, BookMarked, ShoppingCart, Calendar, Building2, FileText, Star } from 'lucide-react';
+import { ArrowLeft, BookMarked, ShoppingCart, Calendar, Building2, FileText, Star, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReviews } from '@/contexts/ReviewContext';
-import { mockBooks } from '@/data/mockBooks';
+import { useBook } from '@/hooks/useBooks';
 import { LoanRequestDialog } from '@/components/loans/LoanRequestDialog';
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { ReviewList } from '@/components/reviews/ReviewList';
@@ -24,9 +24,19 @@ export default function BookDetail() {
   const { getBookAverageRating, getUserReview } = useReviews();
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
 
-  const book = mockBooks.find(b => b.id === id);
+  const { data: book, isLoading } = useBook(id || '');
   const { average, count } = getBookAverageRating(id || '');
   const userReview = user && id ? getUserReview(id, user.id) : undefined;
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="container py-16 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (!book) {
     return (
