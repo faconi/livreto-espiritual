@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { BookCard } from '@/components/books/BookCard';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockBooks } from '@/data/mockBooks';
+import { useBooks } from '@/hooks/useBooks';
+
 const features = [{
   icon: BookOpen,
   title: 'Biblioteca Espírita',
@@ -23,11 +24,11 @@ const features = [{
   title: 'Caridade',
   description: 'Parte da renda é revertida para ações sociais'
 }];
+
 export default function Index() {
-  const {
-    user
-  } = useAuth();
-  const featuredBooks = mockBooks.slice(0, 4);
+  const { user } = useAuth();
+  const { books, isLoading } = useBooks();
+  const featuredBooks = books.filter(b => b.availableForLoan > 0 || b.availableForSale > 0).slice(0, 4);
   return <MainLayout>
       {/* Hero Section */}
       <section className="relative overflow-hidden gradient-hero">

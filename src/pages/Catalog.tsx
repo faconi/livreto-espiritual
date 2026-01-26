@@ -1,18 +1,23 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Loader2 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { CatalogBookCard } from '@/components/books/CatalogBookCard';
 import { CatalogBookListItem } from '@/components/books/CatalogBookListItem';
 import { Badge } from '@/components/ui/badge';
-import { mockBooks, categories, publishers } from '@/data/mockBooks';
 import { Book } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBooks } from '@/hooks/useBooks';
 
 export default function Catalog() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { books, isLoading } = useBooks();
+
+  // Extract unique categories and publishers from database
+  const categories = useMemo(() => [...new Set(books.map(b => b.category).filter(Boolean))], [books]);
+  const publishers = useMemo(() => [...new Set(books.map(b => b.publisher).filter(Boolean))], [books]);
 
   const columns: ColumnDef<Book>[] = useMemo(() => [
     {
@@ -132,25 +137,31 @@ export default function Catalog() {
           </div>
 
           {/* Data Table - No create/export/import for catalog, no edit column */}
-          <DataTable
-            data={mockBooks}
-            columns={columns}
-            searchPlaceholder="Buscar por título, autor, ISBN..."
-            searchableFields={['title', 'author', 'spiritAuthor', 'isbn', 'publisher']}
-            onRowClick={handleRowClick}
-            isAdmin={false}
-            renderCard={(book) => (
-              <CatalogBookCard book={book} />
-            )}
-            renderListItem={(book) => (
-              <CatalogBookListItem book={book} />
-            )}
-            emptyMessage="Nenhum livro encontrado"
-            emptyIcon={<BookOpen size={48} className="text-muted-foreground/50" />}
-            defaultView="cards"
-            showViewToggle={true}
-            showFilters={true}
-          />
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <DataTable
+              data={books}
+              columns={columns}
+              searchPlaceholder="Buscar por título, autor, ISBN..."
+              searchableFields={['title', 'author', 'spiritAuthor', 'isbn', 'publisher']}
+              onRowClick={handleRowClick}
+              isAdmin={false}
+              renderCard={(book) => (
+                <CatalogBookCard book={book} />
+              )}
+              renderListItem={(book) => (
+                <CatalogBookListItem book={book} />
+              )}
+              emptyMessage="Nenhum livro encontrado"
+              emptyIcon={<BookOpen size={48} className="text-muted-foreground/50" />}
+              defaultView="cards"
+              showViewToggle={true}
+              showFilters={true}
+            />
+          )}
         </div>
       </div>
     </MainLayout>
