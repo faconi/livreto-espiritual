@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Eye, Receipt, CreditCard, Banknote, Plus, Check } from 'lucide-react';
+import { ShoppingBag, Eye, Receipt, CreditCard, Banknote, Plus, Check, Loader2 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -17,87 +17,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AdminSaleDialog } from '@/components/admin/AdminSaleDialog';
-import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-// Mock sales data
-const mockSales: (Sale & { bookTitle: string; userName: string; userEmail: string })[] = [
-  {
-    id: 's1',
-    bookId: '1',
-    userId: '2',
-    bookTitle: 'O Livro dos Espíritos',
-    userName: 'João Silva',
-    userEmail: 'joao@email.com',
-    quantity: 1,
-    unitPrice: 45,
-    totalPrice: 45,
-    paymentMethod: 'pix',
-    paymentStatus: 'completed',
-    createdAt: new Date('2024-01-20'),
-  },
-  {
-    id: 's2',
-    bookId: '3',
-    userId: '3',
-    bookTitle: 'Nosso Lar',
-    userName: 'Maria Santos',
-    userEmail: 'maria@email.com',
-    quantity: 2,
-    unitPrice: 48,
-    totalPrice: 96,
-    paymentMethod: 'cash',
-    paymentStatus: 'completed',
-    createdAt: new Date('2024-01-18'),
-  },
-  {
-    id: 's3',
-    bookId: '5',
-    userId: '4',
-    bookTitle: 'Violetas na Janela',
-    userName: 'Pedro Lima',
-    userEmail: 'pedro@email.com',
-    quantity: 1,
-    unitPrice: 35,
-    totalPrice: 35,
-    paymentMethod: 'pix',
-    paymentStatus: 'pending',
-    createdAt: new Date('2024-01-22'),
-  },
-  {
-    id: 's4',
-    bookId: '2',
-    userId: '2',
-    bookTitle: 'O Evangelho Segundo o Espiritismo',
-    userName: 'João Silva',
-    userEmail: 'joao@email.com',
-    quantity: 3,
-    unitPrice: 42,
-    totalPrice: 126,
-    paymentMethod: 'cash',
-    paymentStatus: 'completed',
-    createdAt: new Date('2024-01-15'),
-  },
-  {
-    id: 's5',
-    bookId: '8',
-    userId: '3',
-    bookTitle: 'O Livro dos Médiuns',
-    userName: 'Maria Santos',
-    userEmail: 'maria@email.com',
-    quantity: 1,
-    unitPrice: 47,
-    totalPrice: 47,
-    paymentMethod: 'pix',
-    paymentStatus: 'completed',
-    createdAt: new Date('2024-01-10'),
-  },
-];
+import { useSalesAdmin, SaleWithDetails } from '@/hooks/useSales';
 
 const paymentMethodLabels: Record<Sale['paymentMethod'], string> = {
   cash: 'Dinheiro',
@@ -111,9 +37,8 @@ const paymentStatusConfig: Record<Sale['paymentStatus'], { label: string; varian
 };
 
 export default function AdminSales() {
-  const { toast } = useToast();
-  const [sales, setSales] = useState(mockSales);
-  const [selectedSale, setSelectedSale] = useState<typeof mockSales[0] | null>(null);
+  const { sales, isLoading, createSale, confirmPayment } = useSalesAdmin();
+  const [selectedSale, setSelectedSale] = useState<SaleWithDetails | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [newSaleOpen, setNewSaleOpen] = useState(false);
 
@@ -131,34 +56,23 @@ export default function AdminSales() {
     paymentStatus: 'pending' | 'completed';
     adminNotes?: string;
   }) => {
-    const newSale = {
-      id: `s${Date.now()}`,
-      bookId: data.bookId,
+    createSale.mutate({
       userId: data.userId,
-      bookTitle: data.bookTitle,
-      userName: data.userName,
-      userEmail: data.userEmail,
+      bookId: data.bookId,
       quantity: data.quantity,
       unitPrice: data.unitPrice,
       totalPrice: data.totalPrice,
       paymentMethod: data.paymentMethod,
-      paymentStatus: data.paymentStatus,
-      createdAt: new Date(),
-    };
-    setSales(prev => [newSale, ...prev]);
+      status: data.paymentStatus === 'completed' ? 'confirmed' : 'pending',
+      adminNotes: data.adminNotes,
+    });
   };
 
   // Handle confirm pending payment
   const handleConfirmPayment = (saleId: string) => {
-    setSales(prev => prev.map(s => 
-      s.id === saleId ? { ...s, paymentStatus: 'completed' as const } : s
-    ));
-    toast({
-      title: 'Pagamento confirmado',
-      description: 'O pagamento foi registrado como recebido.',
-    });
+    confirmPayment.mutate(saleId);
   };
-  const columns: ColumnDef<typeof mockSales[0]>[] = [
+  const columns: ColumnDef<SaleWithDetails>[] = [
     {
       id: 'id',
       header: 'Pedido',
@@ -279,7 +193,7 @@ export default function AdminSales() {
     },
   ];
 
-  const handleRowClick = (sale: typeof mockSales[0]) => {
+  const handleRowClick = (sale: SaleWithDetails) => {
     setSelectedSale(sale);
     setDetailsOpen(true);
   };
@@ -289,6 +203,16 @@ export default function AdminSales() {
   const pendingSales = sales.filter(s => s.paymentStatus === 'pending').length;
   const totalSales = sales.length;
   const pixSales = sales.filter(s => s.paymentMethod === 'pix' && s.paymentStatus === 'completed').reduce((sum, s) => sum + s.totalPrice, 0);
+
+  if (isLoading) {
+    return (
+      <MainLayout showFooter={false}>
+        <div className="container py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout showFooter={false}>

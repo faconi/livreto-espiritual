@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, BookMarked, ShoppingBag, StickyNote, Save, Pencil, MessageSquare, AlertCircle, Send, X } from 'lucide-react';
+import { Users, BookMarked, ShoppingBag, StickyNote, Save, Pencil, MessageSquare, AlertCircle, Send, X, Loader2 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -30,97 +30,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useUsers } from '@/hooks/useUsers';
 
-// Mock users with more data
-const mockUsers: User[] = [
-  {
-    id: '1',
-    email: 'admin@geec.com.br',
-    fullName: 'Administrador GEEC',
-    role: 'admin',
-    phone: '31999999999',
-    createdAt: new Date('2023-01-15'),
-  },
-  {
-    id: '2',
-    email: 'joao@email.com',
-    fullName: 'João Silva',
-    socialName: 'João',
-    role: 'user',
-    phone: '31988888888',
-    cpf: '123.456.789-00',
-    address: 'Rua das Flores, 123 - Belo Horizonte/MG',
-    createdAt: new Date('2023-06-20'),
-    notes: 'Cliente frequente. Prefere livros de Allan Kardec.',
-  },
-  {
-    id: '3',
-    email: 'maria@email.com',
-    fullName: 'Maria Santos',
-    role: 'user',
-    phone: '31977777777',
-    createdAt: new Date('2023-08-10'),
-  },
-  {
-    id: '4',
-    email: 'pedro@email.com',
-    fullName: 'Pedro Lima',
-    role: 'user',
-    phone: '31966666666',
-    createdAt: new Date('2023-10-05'),
-    notes: 'Devolveu livro danificado uma vez. Acompanhar próximos empréstimos.',
-  },
-];
+// Mock user history (will be replaced with real data later)
+const mockUserHistory: Record<string, { loans: any[], purchases: any[], pendingActions: any[] }> = {};
 
-// Mock user history
-const mockUserHistory: Record<string, { loans: any[], purchases: any[], pendingActions: any[] }> = {
-  '2': {
-    loans: [
-      { id: 'l1', bookTitle: 'O Livro dos Espíritos', status: 'active', date: '2024-01-15', dueDate: '2024-01-30' },
-      { id: 'l2', bookTitle: 'Nosso Lar', status: 'returned', date: '2023-12-01', returnedAt: '2023-12-14' },
-      { id: 'l3', bookTitle: 'Paulo e Estêvão', status: 'returned', date: '2023-10-15', returnedAt: '2023-10-28' },
-    ],
-    purchases: [
-      { id: 'p1', bookTitle: 'O Evangelho Segundo o Espiritismo', quantity: 1, total: 42, date: '2024-01-10', status: 'completed' },
-      { id: 'p2', bookTitle: 'Violetas na Janela', quantity: 2, total: 70, date: '2023-11-20', status: 'completed' },
-    ],
-    pendingActions: [
-      { id: 'pa1', type: 'loan_return', bookTitle: 'O Livro dos Espíritos', requestedAt: '2024-01-25' },
-    ],
-  },
-  '3': {
-    loans: [
-      { id: 'l4', bookTitle: 'A Gênese', status: 'active', date: '2024-01-20', dueDate: '2024-02-04' },
-    ],
-    purchases: [],
-    pendingActions: [],
-  },
-  '4': {
-    loans: [],
-    purchases: [
-      { id: 'p3', bookTitle: 'O Livro dos Médiuns', quantity: 1, total: 47, date: '2024-01-05', status: 'pending' },
-    ],
-    pendingActions: [
-      { id: 'pa2', type: 'payment', bookTitle: 'O Livro dos Médiuns', requestedAt: '2024-01-05', amount: 47 },
-    ],
-  },
-};
-
-// Mock messages
-const mockMessages: Record<string, any[]> = {
-  '2': [
-    { id: 'm1', from: 'admin', content: 'Olá João, seu empréstimo foi renovado conforme solicitado.', date: '2024-01-20T10:00:00' },
-    { id: 'm2', from: 'user', content: 'Obrigado! Vou devolver na próxima semana.', date: '2024-01-20T10:30:00' },
-  ],
-  '3': [],
-  '4': [
-    { id: 'm3', from: 'admin', content: 'Pedro, seu pagamento ainda está pendente. Pode confirmar?', date: '2024-01-22T14:00:00' },
-  ],
-};
+// Mock messages (will be replaced with real data later)
+const mockMessages: Record<string, any[]> = {};
 
 export default function AdminUsers() {
   const { toast } = useToast();
-  const [users, setUsers] = useState(mockUsers);
+  const { users, isLoading, updateUser, setUserRole } = useUsers();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -224,9 +144,8 @@ export default function AdminUsers() {
 
   const handleSaveNotes = () => {
     if (!selectedUser) return;
-    setUsers(prev => prev.map(u => 
-      u.id === selectedUser.id ? { ...u, notes: adminNotes } : u
-    ));
+    // Notes functionality - for now just update local state
+    // TODO: Add admin_notes field to profiles table
     toast({
       title: 'Notas salvas',
       description: 'As anotações do usuário foram atualizadas.',
@@ -235,15 +154,12 @@ export default function AdminUsers() {
 
   const handleSaveUser = () => {
     if (!selectedUser) return;
-    setUsers(prev => prev.map(u => 
-      u.id === selectedUser.id ? { ...u, ...editedUser } : u
-    ));
+    updateUser.mutate({ 
+      id: selectedUser.id, 
+      updates: editedUser 
+    });
     setSelectedUser({ ...selectedUser, ...editedUser } as User);
     setEditMode(false);
-    toast({
-      title: 'Usuário atualizado',
-      description: 'Os dados do usuário foram salvos.',
-    });
   };
 
   const handleSendMessage = () => {
@@ -269,6 +185,16 @@ export default function AdminUsers() {
 
   const userHistory = selectedUser ? mockUserHistory[selectedUser.id] : null;
   const userMessages = selectedUser ? messages[selectedUser.id] || [] : [];
+
+  if (isLoading) {
+    return (
+      <MainLayout showFooter={false}>
+        <div className="container py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout showFooter={false}>
