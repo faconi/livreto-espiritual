@@ -23,6 +23,7 @@ import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { Loan, Sale, Book, WishlistItem } from '@/types';
 import { useBooks } from '@/hooks/useBooks';
+import { useUserSales } from '@/hooks/useUserSales';
 import { LoanReturnDialog } from '@/components/loans/LoanReturnDialog';
 import { LoanRenewalDialog } from '@/components/loans/LoanRenewalDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,95 +31,43 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { BookCard } from '@/components/books/BookCard';
 
-// Mock data
-const mockLoans: Loan[] = [
-  {
-    id: '1',
-    bookId: '1',
-    userId: '2',
-    status: 'active',
-    borrowedAt: new Date('2024-01-01'),
-    dueDate: new Date('2024-02-01'),
-    renewalCount: 0,
-  },
-  {
-    id: '2',
-    bookId: '3',
-    userId: '2',
-    status: 'pending_return',
-    borrowedAt: new Date('2024-01-10'),
-    dueDate: new Date('2024-02-10'),
-    returnJustification: 'Livro em bom estado',
-  },
-  {
-    id: '3',
-    bookId: '5',
-    userId: '2',
-    status: 'returned',
-    borrowedAt: new Date('2023-11-01'),
-    dueDate: new Date('2023-12-01'),
-    returnedAt: new Date('2023-11-28'),
-  },
-];
+// Status config mapping database enum values to display
 
-const mockPurchases: (Sale & { bookTitle: string })[] = [
-  {
-    id: 's1',
-    bookId: '2',
-    userId: '2',
-    bookTitle: 'O Evangelho Segundo o Espiritismo',
-    quantity: 1,
-    unitPrice: 42,
-    totalPrice: 42,
-    paymentMethod: 'pix',
-    paymentStatus: 'completed',
-    createdAt: new Date('2024-01-10'),
+const statusConfig: Record<string, { label: string; icon: any; variant: 'default' | 'secondary' | 'outline' | 'destructive'; color: string }> = {
+  pending: {
+    label: 'Aguardando Aprovação',
+    icon: Clock,
+    variant: 'secondary',
+    color: 'text-yellow-500',
   },
-  {
-    id: 's2',
-    bookId: '7',
-    userId: '2',
-    bookTitle: 'Violetas na Janela',
-    quantity: 2,
-    unitPrice: 35,
-    totalPrice: 70,
-    paymentMethod: 'pix',
-    paymentStatus: 'completed',
-    createdAt: new Date('2023-11-20'),
-  },
-];
-
-// Removed: mockWishlist - now using WishlistContext
-
-const statusConfig = {
   active: {
     label: 'Ativo',
     icon: Clock,
-    variant: 'default' as const,
+    variant: 'default',
     color: 'text-blue-500',
   },
-  pending_return: {
+  return_pending: {
     label: 'Devolução Pendente',
     icon: RotateCcw,
-    variant: 'secondary' as const,
+    variant: 'secondary',
     color: 'text-yellow-500',
   },
-  pending_renewal: {
+  renewal_pending: {
     label: 'Renovação Pendente',
     icon: RefreshCw,
-    variant: 'secondary' as const,
+    variant: 'secondary',
     color: 'text-orange-500',
   },
   returned: {
     label: 'Devolvido',
     icon: CheckCircle,
-    variant: 'outline' as const,
+    variant: 'outline',
     color: 'text-green-500',
   },
   overdue: {
     label: 'Atrasado',
     icon: AlertCircle,
-    variant: 'destructive' as const,
+    variant: 'destructive',
     color: 'text-red-500',
   },
 };
@@ -137,6 +86,7 @@ export default function MyBooks() {
   const { wishlist, isInWishlist } = useWishlist();
   const { businessRules } = useSystemSettings();
   const { books } = useBooks();
+  const { completedSales, pendingSales } = useUserSales();
   const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<LoanWithBook | null>(null);
   const [selectedLoanForRenewal, setSelectedLoanForRenewal] = useState<LoanWithBook | null>(null);
 
@@ -162,7 +112,8 @@ export default function MyBooks() {
     });
   }, [loans]);
 
-  const activeLoans = loansWithBooks.filter(l => l.status === 'active' || l.status === 'pending_return' || l.status === 'pending_renewal');
+  // Filter active loans (not returned)
+  const activeLoans = loansWithBooks.filter(l => l.status !== 'returned');
   const loanHistory = loansWithBooks.filter(l => l.status === 'returned');
 
   const wishlistBooks = useMemo(() => {
@@ -202,8 +153,21 @@ export default function MyBooks() {
   // Wishlist is now handled by WishlistContext
 
   const renderLoanCard = (loan: LoanWithBook) => {
-    const config = statusConfig[loan.status];
+    const config = statusConfig[loan.status] || statusConfig.active;
     const StatusIcon = config.icon;
+
+    // Mobile-friendly status labels
+    const getMobileStatusLabel = (status: string) => {
+      switch (status) {
+        case 'pending': return 'Aguardando';
+        case 'active': return 'Ativo';
+        case 'return_pending': return 'Dev. Pend.';
+        case 'renewal_pending': return 'Ren. Pend.';
+        case 'overdue': return 'Atrasado';
+        case 'returned': return 'Devolvido';
+        default: return status;
+      }
+    };
 
     return (
       <Card className="hover:shadow-md transition-shadow">
@@ -228,11 +192,7 @@ export default function MyBooks() {
                 <Badge variant={config.variant} className="text-[10px] sm:text-xs px-1.5 sm:px-2">
                   <StatusIcon size={12} className="mr-0.5 sm:mr-1" />
                   <span className="hidden xs:inline">{config.label}</span>
-                  <span className="xs:hidden">
-                    {loan.status === 'active' ? 'Ativo' : 
-                     loan.status === 'pending_return' ? 'Dev. Pend.' : 
-                     loan.status === 'pending_renewal' ? 'Ren. Pend.' : 'Devolvido'}
-                  </span>
+                  <span className="xs:hidden">{getMobileStatusLabel(loan.status)}</span>
                 </Badge>
               </div>
 
@@ -399,22 +359,26 @@ export default function MyBooks() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {mockPurchases.length > 0 ? (
+                    {completedSales.length > 0 ? (
                       <div className="space-y-3">
-                        {mockPurchases.map(purchase => (
+                        {completedSales.map(purchase => (
                           <div 
                             key={purchase.id}
                             className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
                             onClick={() => navigate(`/livro/${purchase.bookId}`)}
                           >
-                            <ShoppingBag size={20} className="text-muted-foreground" />
+                            <img
+                              src={purchase.bookCover}
+                              alt={purchase.bookTitle}
+                              className="w-10 h-14 object-cover rounded"
+                            />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium truncate">{purchase.bookTitle}</p>
                               <p className="text-xs text-muted-foreground">
                                 {purchase.quantity}x em {purchase.createdAt.toLocaleDateString('pt-BR')}
                               </p>
                             </div>
-                            <span className="font-medium text-green-600">
+                            <span className="font-medium text-primary">
                               R$ {purchase.totalPrice.toFixed(2)}
                             </span>
                           </div>

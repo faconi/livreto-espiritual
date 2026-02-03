@@ -37,13 +37,9 @@ export function LoanProvider({ children }: { children: ReactNode }) {
     enabled: !!user,
   });
 
+  // Filter active loans (not returned)
   const activeLoans = useMemo(() => {
-    return loansData.filter(l => 
-      l.status === 'active' || 
-      l.status === 'pending_return' || 
-      l.status === 'pending_renewal' ||
-      l.status === 'overdue'
-    );
+    return loansData.filter(l => l.status !== 'returned');
   }, [loansData]);
 
   const createLoanMutation = useMutation({
