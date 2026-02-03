@@ -8,9 +8,9 @@ import {
   RefreshCw,
   RotateCcw,
   CreditCard,
-  MessageSquare,
   User,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,8 +18,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -30,60 +28,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PendingConfirmation } from '@/types';
+import { usePendingConfirmations, PendingItem } from '@/hooks/usePendingConfirmations';
 
-// Mock pending confirmations
-const mockPendingConfirmations: PendingConfirmation[] = [
-  {
-    id: 'pc1',
-    type: 'loan_return',
-    userId: '2',
-    userName: 'João Silva',
-    userEmail: 'joao@email.com',
-    itemId: 'l2',
-    itemTitle: 'O Livro dos Espíritos',
-    requestedAt: new Date('2024-01-18T10:30:00'),
-    justification: 'Terminei a leitura, livro em ótimo estado.',
-    status: 'pending',
-  },
-  {
-    id: 'pc2',
-    type: 'loan_renewal',
-    userId: '3',
-    userName: 'Maria Santos',
-    userEmail: 'maria@email.com',
-    itemId: 'l3',
-    itemTitle: 'Nosso Lar',
-    requestedAt: new Date('2024-01-17T14:20:00'),
-    justification: 'Estou estudando para um seminário sobre a obra de André Luiz e preciso de mais 15 dias para concluir.',
-    status: 'pending',
-  },
-  {
-    id: 'pc3',
-    type: 'payment',
-    userId: '4',
-    userName: 'Pedro Lima',
-    userEmail: 'pedro@email.com',
-    itemId: 's1',
-    itemTitle: 'O Evangelho Segundo o Espiritismo (R$ 42,00)',
-    requestedAt: new Date('2024-01-16T09:15:00'),
-    justification: 'Pagamento PIX realizado',
-    status: 'pending',
-  },
-  {
-    id: 'pc4',
-    type: 'loan_request',
-    userId: '2',
-    userName: 'João Silva',
-    userEmail: 'joao@email.com',
-    itemId: 'l4',
-    itemTitle: 'Paulo e Estêvão',
-    requestedAt: new Date('2024-01-15T16:45:00'),
-    status: 'pending',
-  },
-];
-
-const typeConfig: Record<PendingConfirmation['type'], { label: string; icon: any; color: string }> = {
+const typeConfig: Record<PendingItem['type'], { label: string; icon: any; color: string }> = {
   loan_return: { label: 'Devolução', icon: RotateCcw, color: 'bg-yellow-100 text-yellow-700' },
   loan_renewal: { label: 'Renovação', icon: RefreshCw, color: 'bg-blue-100 text-blue-700' },
   payment: { label: 'Pagamento', icon: CreditCard, color: 'bg-green-100 text-green-700' },
@@ -91,17 +38,26 @@ const typeConfig: Record<PendingConfirmation['type'], { label: string; icon: any
 };
 
 export default function AdminPendingConfirmations() {
-  const { toast } = useToast();
-  const [confirmations, setConfirmations] = useState(mockPendingConfirmations);
-  const [selectedItem, setSelectedItem] = useState<PendingConfirmation | null>(null);
+  const { 
+    pendingItems, 
+    isLoading,
+    approveLoanRequest,
+    rejectLoanRequest,
+    approveReturn,
+    rejectReturn,
+    approveRenewal,
+    rejectRenewal,
+    approvePayment,
+    rejectPayment,
+  } = usePendingConfirmations();
+
+  const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
+  const [adminNotes, setAdminNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const pendingItems = confirmations.filter(c => c.status === 'pending');
-
   const groupedByType = useMemo(() => {
-    const groups: Record<string, PendingConfirmation[]> = {};
+    const groups: Record<string, PendingItem[]> = {};
     pendingItems.forEach(item => {
       if (!groups[item.type]) groups[item.type] = [];
       groups[item.type].push(item);
@@ -109,10 +65,10 @@ export default function AdminPendingConfirmations() {
     return groups;
   }, [pendingItems]);
 
-  const handleAction = (item: PendingConfirmation, action: 'approve' | 'reject') => {
+  const handleAction = (item: PendingItem, action: 'approve' | 'reject') => {
     setSelectedItem(item);
     setActionType(action);
-    setRejectionReason('');
+    setAdminNotes('');
   };
 
   const handleConfirmAction = async () => {
@@ -120,31 +76,80 @@ export default function AdminPendingConfirmations() {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    setConfirmations(prev => prev.map(c => 
-      c.id === selectedItem.id 
-        ? { 
-            ...c, 
-            status: actionType === 'approve' ? 'approved' : 'rejected',
-            resolvedAt: new Date(),
-            rejectionReason: actionType === 'reject' ? rejectionReason : undefined,
-          } 
-        : c
-    ));
-
-    toast({
-      title: actionType === 'approve' ? 'Aprovado!' : 'Recusado',
-      description: actionType === 'approve'
-        ? `${typeConfig[selectedItem.type].label} de "${selectedItem.itemTitle}" foi aprovado(a).`
-        : `${typeConfig[selectedItem.type].label} de "${selectedItem.itemTitle}" foi recusado(a).`,
-    });
-
-    setSelectedItem(null);
-    setActionType(null);
-    setIsSubmitting(false);
+    try {
+      if (actionType === 'approve') {
+        switch (selectedItem.type) {
+          case 'loan_request':
+            await approveLoanRequest.mutateAsync({ 
+              loanId: selectedItem.loanId!, 
+              adminNotes: adminNotes || undefined 
+            });
+            break;
+          case 'loan_return':
+            await approveReturn.mutateAsync({ 
+              loanId: selectedItem.loanId!, 
+              adminNotes: adminNotes || undefined 
+            });
+            break;
+          case 'loan_renewal':
+            await approveRenewal.mutateAsync({ 
+              loanId: selectedItem.loanId!,
+              currentDueDate: selectedItem.dueDate || new Date(),
+              renewalCount: selectedItem.renewalCount || 0,
+              adminNotes: adminNotes || undefined 
+            });
+            break;
+          case 'payment':
+            await approvePayment.mutateAsync({ 
+              saleId: selectedItem.saleId!, 
+              adminNotes: adminNotes || undefined 
+            });
+            break;
+        }
+      } else {
+        switch (selectedItem.type) {
+          case 'loan_request':
+            await rejectLoanRequest.mutateAsync({ 
+              loanId: selectedItem.loanId!, 
+              adminNotes: adminNotes || undefined 
+            });
+            break;
+          case 'loan_return':
+            await rejectReturn.mutateAsync({ 
+              loanId: selectedItem.loanId!, 
+              adminNotes: adminNotes || undefined 
+            });
+            break;
+          case 'loan_renewal':
+            await rejectRenewal.mutateAsync({ 
+              loanId: selectedItem.loanId!, 
+              adminNotes: adminNotes || undefined 
+            });
+            break;
+          case 'payment':
+            await rejectPayment.mutateAsync({ 
+              saleId: selectedItem.saleId!, 
+              adminNotes: adminNotes || undefined 
+            });
+            break;
+        }
+      }
+    } finally {
+      setSelectedItem(null);
+      setActionType(null);
+      setIsSubmitting(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <MainLayout showFooter={false}>
+        <div className="container py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout showFooter={false}>
@@ -306,35 +311,19 @@ export default function AdminPendingConfirmations() {
                 </div>
               )}
 
-            {actionType === 'reject' && (
-                <div>
-                  <label className="text-sm font-medium">
-                    Motivo da recusa <span className="text-muted-foreground">(opcional)</span>
-                  </label>
-                  <Textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Informe o motivo da recusa (opcional)..."
-                    className="mt-1"
-                    rows={3}
-                  />
-                </div>
-              )}
-
-              {actionType === 'approve' && (
-                <div>
-                  <label className="text-sm font-medium">
-                    Observações <span className="text-muted-foreground">(opcional)</span>
-                  </label>
-                  <Textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Adicione uma observação (opcional)..."
-                    className="mt-1"
-                    rows={2}
-                  />
-                </div>
-              )}
+              <div>
+                <label className="text-sm font-medium">
+                  {actionType === 'reject' ? 'Motivo da recusa' : 'Observações'}{' '}
+                  <span className="text-muted-foreground">(opcional)</span>
+                </label>
+                <Textarea
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  placeholder={actionType === 'reject' ? 'Informe o motivo da recusa...' : 'Adicione uma observação...'}
+                  className="mt-1"
+                  rows={3}
+                />
+              </div>
 
               {actionType === 'approve' && (
                 <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
@@ -344,7 +333,7 @@ export default function AdminPendingConfirmations() {
                       <>
                         <li>Marcar o empréstimo como devolvido</li>
                         <li>Liberar o livro para novo empréstimo</li>
-                        <li>Atualizar o estoque disponível</li>
+                        <li>Atualizar o estoque disponível automaticamente</li>
                       </>
                     )}
                     {selectedItem?.type === 'loan_renewal' && (
@@ -356,13 +345,13 @@ export default function AdminPendingConfirmations() {
                     {selectedItem?.type === 'payment' && (
                       <>
                         <li>Confirmar o pagamento da compra</li>
-                        <li>Atualizar o status da venda</li>
+                        <li>Atualizar o status da venda para confirmado</li>
                       </>
                     )}
                     {selectedItem?.type === 'loan_request' && (
                       <>
-                        <li>Confirmar o empréstimo para o usuário</li>
-                        <li>Reduzir o estoque disponível</li>
+                        <li>Ativar o empréstimo para o usuário</li>
+                        <li>Reduzir o estoque disponível automaticamente</li>
                       </>
                     )}
                   </ul>
